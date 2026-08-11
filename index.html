@@ -60,7 +60,6 @@ async function verifierMotDePasse() {
   const pwd = document.getElementById("login-pwd").value;
   const hash = await sha256(pwd);
   if (hash === HASH_MDP) {
-    sessionStorage.setItem("zemag-auth", "1");
     deverrouiller();
   } else {
     document.getElementById("login-err").textContent = "Mot de passe incorrect";
@@ -76,7 +75,8 @@ function deverrouiller() {
   document.getElementById("root").style.display = "block";
 }
 
-if (sessionStorage.getItem("zemag-auth") === "1") deverrouiller();
+localStorage.removeItem("zemag-auth");
+sessionStorage.removeItem("zemag-auth");
 </script>
 
 <script>
