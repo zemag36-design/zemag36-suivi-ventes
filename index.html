@@ -8,6 +8,8 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
   html, body { margin: 0; padding: 0; background: #f2ede2; }
   * { box-sizing: border-box; }
@@ -77,8 +79,20 @@ function deverrouiller() {
 if (sessionStorage.getItem("zemag-auth") === "1") deverrouiller();
 </script>
 
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCZoX4oLL0ZTt9RCZxQhwIGbZzBO9D6H1o",
+  authDomain: "ventes-zemag.firebaseapp.com",
+  projectId: "ventes-zemag",
+  storageBucket: "ventes-zemag.firebasestorage.app",
+  messagingSenderId: "914019853600",
+  appId: "1:914019853600:web:2f5a669a80de33963b2345",
+});
+const db = firebase.firestore();
+</script>
+
 <script type="text/babel">
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
 
 const SURFACES_DEFAUT = ["1 page", "2 pages", "1/2", "1/4", "1/8", "1/16", "Bandeau", "Module bas", "Petit module", "Publireportage double page", "Publireportage page", "Publireportage 1/2 page"];
 const POSITIONS_DEFAUT = ["Première page", "Page différente", "Page intérieure", "Avant dernière", "Dernière page", "Jaquette Recto", "Jaquette Verso", "Page 2", "Page 3", "Centrale", "Double page", "Couverture", "Dossier habitat", "Artisan", "Sudoku", "Agenda", "Brèves", "Terrasse de l'été"];
@@ -177,10 +191,30 @@ function App() {
   const [nouveauPosition, setNouveauPosition] = useState("");
   const [erreur, setErreur] = useState("");
 
-  function majVentes(fn) { setVentes((vs) => { const nv = fn(vs); sauverLocal("zemag-pub-ventes", nv); return nv; }); }
-  function majBilanExtra(fn) { setBilanExtra((b) => { const nb = fn(b); sauverLocal("zemag-pub-bilan", nb); return nb; }); }
-  function majSurfaces(fn) { setSurfaces((s) => { const ns = fn(s); sauverLocal("zemag-pub-surfaces", ns); return ns; }); }
-  function majPositions(fn) { setPositions((p) => { const np = fn(p); sauverLocal("zemag-pub-positions", np); return np; }); }
+  const docRef = db.collection("zemag").doc("data");
+
+  function majVentes(fn) { setVentes((vs) => { const nv = fn(vs); sauverLocal("zemag-pub-ventes", nv); docRef.set({ ventes: nv }, { merge: true }).catch(() => {}); return nv; }); }
+  function majBilanExtra(fn) { setBilanExtra((b) => { const nb = fn(b); sauverLocal("zemag-pub-bilan", nb); docRef.set({ bilanExtra: nb }, { merge: true }).catch(() => {}); return nb; }); }
+  function majSurfaces(fn) { setSurfaces((s) => { const ns = fn(s); sauverLocal("zemag-pub-surfaces", ns); docRef.set({ surfaces: ns }, { merge: true }).catch(() => {}); return ns; }); }
+  function majPositions(fn) { setPositions((p) => { const np = fn(p); sauverLocal("zemag-pub-positions", np); docRef.set({ positions: np }, { merge: true }).catch(() => {}); return np; }); }
+
+  useEffect(() => {
+    docRef.get().then((doc) => {
+      if (!doc.exists) {
+        docRef.set({ ventes, bilanExtra, surfaces, positions }).catch(() => {});
+      }
+    }).catch(() => {});
+
+    const unsub = docRef.onSnapshot((doc) => {
+      if (!doc.exists || doc.metadata.hasPendingWrites) return;
+      const d = doc.data();
+      if (d.ventes !== undefined) { setVentes(d.ventes); sauverLocal("zemag-pub-ventes", d.ventes); }
+      if (d.bilanExtra !== undefined) { setBilanExtra(d.bilanExtra); sauverLocal("zemag-pub-bilan", d.bilanExtra); }
+      if (d.surfaces !== undefined) { setSurfaces(d.surfaces); sauverLocal("zemag-pub-surfaces", d.surfaces); }
+      if (d.positions !== undefined) { setPositions(d.positions); sauverLocal("zemag-pub-positions", d.positions); }
+    });
+    return () => unsub();
+  }, []);
 
   const parEdition = useMemo(() => {
     const map = {};
