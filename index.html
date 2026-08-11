@@ -22,10 +22,60 @@
   th, td { text-align:left; padding: 6px 8px; font-size:13px; }
   th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#8b8478; border-bottom:2px solid #e2dac7; }
   tr:not(:last-child) td { border-bottom:1px solid #ede6d6; }
+  #login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f2ede2; }
+  #login-box { background:#fff; border:1px solid #e2dac7; border-radius:12px; padding:40px 32px; text-align:center; max-width:360px; width:90%; }
+  #login-box h1 { font-family:Georgia,serif; font-size:22px; margin:0 0 4px; color:#2c2a24; }
+  #login-box .sub { font-size:11px; letter-spacing:.15em; text-transform:uppercase; color:#c9a26a; margin-bottom:20px; }
+  #login-box input { width:100%; padding:10px 12px; border:1px solid #d9d0bc; border-radius:8px; font-size:15px; background:#fdfbf6; text-align:center; margin-bottom:12px; }
+  #login-box button { width:100%; padding:10px; background:#b5792f; color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; }
+  #login-box button:hover { opacity:.85; }
+  #login-box .err { color:#a8412f; font-size:13px; margin-bottom:10px; }
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="login-screen">
+  <div id="login-box">
+    <div class="sub">ZEmag36</div>
+    <h1>Suivi des ventes</h1>
+    <p style="font-size:13px;color:#8b8478;margin:6px 0 20px">Entrez le mot de passe pour accéder à l'application</p>
+    <div id="login-err" class="err"></div>
+    <input type="password" id="login-pwd" placeholder="Mot de passe" autocomplete="off" />
+    <button onclick="verifierMotDePasse()">Se connecter</button>
+  </div>
+</div>
+<div id="root" style="display:none"></div>
+
+<script>
+const HASH_MDP = "506572aa4c39083618ac4df83a1e4f362dab873feca9b4e44692893909ce677a";
+
+async function sha256(text) {
+  const data = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifierMotDePasse() {
+  const pwd = document.getElementById("login-pwd").value;
+  const hash = await sha256(pwd);
+  if (hash === HASH_MDP) {
+    sessionStorage.setItem("zemag-auth", "1");
+    deverrouiller();
+  } else {
+    document.getElementById("login-err").textContent = "Mot de passe incorrect";
+  }
+}
+
+document.getElementById("login-pwd").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") verifierMotDePasse();
+});
+
+function deverrouiller() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("root").style.display = "block";
+}
+
+if (sessionStorage.getItem("zemag-auth") === "1") deverrouiller();
+</script>
 
 <script type="text/babel">
 const { useState, useMemo } = React;
