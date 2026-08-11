@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>ZEmag36 - Suivi des ventes publicitaires</title>
+<link rel="icon" href="data:,">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #f2ede2; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #2c2a24; }
+  input, select, textarea { font-family: inherit; }
+  .btn { cursor:pointer; border:none; font-weight:600; transition: opacity .15s; }
+  .btn:hover { opacity:0.85; }
+  .tab { cursor:pointer; }
+  .chip { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:3px 10px; font-size:12px; font-weight:700; cursor:pointer; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid #b5792f; outline-offset: 1px; }
+  table { border-collapse: collapse; width:100%; }
+  th, td { text-align:left; padding: 6px 8px; font-size:13px; }
+  th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#8b8478; border-bottom:2px solid #e2dac7; }
+  tr:not(:last-child) td { border-bottom:1px solid #ede6d6; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+const SURFACES_DEFAUT = ["1 page", "2 pages", "1/2", "1/4", "1/8", "1/16", "Bandeau", "Module bas", "Petit module", "Publireportage double page", "Publireportage page", "Publireportage 1/2 page"];
+const POSITIONS_DEFAUT = ["Première page", "Page différente", "Page intérieure", "Avant dernière", "Dernière page", "Jaquette Recto", "Jaquette Verso", "Page 2", "Page 3", "Centrale", "Double page", "Couverture", "Dossier habitat", "Artisan", "Sudoku", "Agenda", "Brèves", "Terrasse de l'été"];
+
+function genererEditions(anneeDebut, anneeFin, numeroDepart) {
+  const moisAnnee = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet/Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+  const liste = [];
+  let numero = numeroDepart;
+  for (let annee = anneeDebut; annee <= anneeFin; annee++) {
+    for (const mois of moisAnnee) {
+      liste.push({ numero: `N°${numero}`, mois, annee });
+      numero++;
+    }
+  }
+  return liste;
+}
+
+const EDITIONS_DEFAUT = genererEditions(2026, 2032, 120);
+const MOIS_LABELS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet/Août", "Juillet/Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+const BAT_ETAPES = [
+  { key: "dateEnvoiQuestionnaire", label: "Questionnaire envoyé", icon: "📤" },
+  { key: "retourClient", label: "Retour client", icon: "✅" },
+  { key: "dateEnvoiMaquette", label: "Maquette envoyée", icon: "📤" },
+];
+
+const BAT_STATUTS = [
+  { id: "envoye", label: "BAT envoyé", color: "#b5792f", icon: "📤" },
+  { id: "modification", label: "Modification demandée", color: "#a8412f", icon: "⚠️" },
+  { id: "valide", label: "BAT validé", color: "#3d6b4a", icon: "✔️" },
+];
+
+const STATUTS_PUBLIREPORTAGE = [
+  { id: "texte_envoye_client", label: "Texte envoyé au client" },
+  { id: "texte_valide_client", label: "Texte validé par le client" },
+  { id: "texte_envoye_mise_en_page", label: "Texte envoyé pour la mise en page" },
+  { id: "mise_en_page_modification", label: "Mise en page en modification" },
+  { id: "mise_en_page_validee", label: "Mise en page validée par le client" },
+];
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function euros(n) { return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0); }
+function editionLabel(e) { return e ? `${e.numero} - ${e.mois} ${e.annee}` : "Édition non précisée"; }
+function editionKey(e) { return `${e.mois}|${e.annee}`; }
+
+function chargerLocal(cle, defaut) {
+  try {
+    const brut = localStorage.getItem(cle);
+    return brut ? JSON.parse(brut) : defaut;
+  } catch (e) { return defaut; }
+}
+function sauverLocal(cle, valeur) {
+  try { localStorage.setItem(cle, JSON.stringify(valeur)); } catch (e) {}
+}
+
+const emptyForm = {
+  client: "", surface: SURFACES_DEFAUT[0], position: POSITIONS_DEFAUT[0], montantHT: "",
+  texteRecu: false, paye: false, editionIdx: 0,
+  programmerPlusieurs: false, editionDepartIdx: 0, nbParutions: "",
+  dateEnvoiQuestionnaire: "", retourClient: "", dateEnvoiMaquette: "",
+  statutBAT: "", dateStatutBAT: "", statutPublireportage: "", notes: "",
+};
+
+const inputStyle = { width: "100%", padding: "8px 10px", border: "1px solid #d9d0bc", borderRadius: 8, fontSize: 14, background: "#fdfbf6" };
+
+function Champ({ label, required, children }) {
+  return (
+    <label style={{ display: "block", fontSize: 12, color: "#5c5548", marginBottom: 2, marginTop: 8 }}>
+      {label}{required && <span style={{ color: "#a8412f" }}> *</span>}
+      <div style={{ marginTop: 4 }}>{children}</div>
+    </label>
+  );
+}
+
+function Kpi({ label, value, accent }) {
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 10, padding: 14 }}>
+      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#8b8478" }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4, color: accent || "#2c2a24" }}>{value}</div>
+    </div>
+  );
+}
+
+function App() {
+  const [ventes, setVentes] = useState(() => chargerLocal("zemag-pub-ventes", []));
+  const [editions] = useState(EDITIONS_DEFAUT);
+  const [bilanExtra, setBilanExtra] = useState(() => chargerLocal("zemag-pub-bilan", {}));
+  const [surfaces, setSurfaces] = useState(() => chargerLocal("zemag-pub-surfaces", SURFACES_DEFAUT));
+  const [positions, setPositions] = useState(() => chargerLocal("zemag-pub-positions", POSITIONS_DEFAUT));
+  const [onglet, setOnglet] = useState("saisie");
+  const [form, setForm] = useState(emptyForm);
+  const [editId, setEditId] = useState(null);
+  const [filtreEdition, setFiltreEdition] = useState("tous");
+  const [filtreAnnee, setFiltreAnnee] = useState(new Date().getFullYear());
+  const [nouveauSurface, setNouveauSurface] = useState("");
+  const [nouveauPosition, setNouveauPosition] = useState("");
+  const [erreur, setErreur] = useState("");
+
+  function majVentes(fn) { setVentes((vs) => { const nv = fn(vs); sauverLocal("zemag-pub-ventes", nv); return nv; }); }
+  function majBilanExtra(fn) { setBilanExtra((b) => { const nb = fn(b); sauverLocal("zemag-pub-bilan", nb); return nb; }); }
+  function majSurfaces(fn) { setSurfaces((s) => { const ns = fn(s); sauverLocal("zemag-pub-surfaces", ns); return ns; }); }
+  function majPositions(fn) { setPositions((p) => { const np = fn(p); sauverLocal("zemag-pub-positions", np); return np; }); }
+
+  const parEdition = useMemo(() => {
+    const map = {};
+    for (const v of ventes) {
+      const k = editionKey(v.edition);
+      if (!map[k]) map[k] = [];
+      map[k].push(v);
+    }
+    return map;
+  }, [ventes]);
+
+  const moisLabelCourant = MOIS_LABELS[new Date().getMonth()];
+  const anneeCourante = new Date().getFullYear();
+  const editionCourante = editions.find((e) => e.mois === moisLabelCourant && e.annee === anneeCourante) || editions[0];
+  const venteMoisCourant = parEdition[editionKey(editionCourante)] || [];
+
+  const anneesDisponibles = useMemo(() => [...new Set(editions.map((e) => e.annee))], [editions]);
+  const ventesAnnee = useMemo(() => ventes.filter((v) => v.edition && v.edition.annee === filtreAnnee), [ventes, filtreAnnee]);
+
+  const editionsSelectionnees = useMemo(() => {
+    if (!form.programmerPlusieurs) return [];
+    const n = parseInt(form.nbParutions, 10);
+    if (!n || n < 1) return [];
+    return editions.slice(form.editionDepartIdx, form.editionDepartIdx + n);
+  }, [form.programmerPlusieurs, form.editionDepartIdx, form.nbParutions, editions]);
+
+  const venteAffichees = useMemo(() => {
+    const liste = filtreEdition === "tous" ? ventes : (parEdition[filtreEdition] || []);
+    return [...liste].sort((a, b) => a.client.localeCompare(b.client));
+  }, [ventes, parEdition, filtreEdition]);
+
+  const caFiltre = useMemo(() => venteAffichees.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0), [venteAffichees]);
+
+  const kpiVentes = onglet === "suivi" ? venteAffichees : venteMoisCourant;
+  const kpiLabelEdition = onglet === "suivi"
+    ? (filtreEdition === "tous" ? "toutes éditions" : editionLabel(editions.find((e) => editionKey(e) === filtreEdition)))
+    : editionLabel(editionCourante);
+  const kpiCA = kpiVentes.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0);
+  const kpiARelancer = kpiVentes.filter((v) => v.statutBAT === "envoye" || v.statutBAT === "modification").length;
+  const kpiDu = kpiVentes.filter((v) => !v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0);
+
+  function resetForm() { setForm(emptyForm); setEditId(null); setErreur(""); }
+
+  function soumettre(e) {
+    e.preventDefault();
+    if (!form.client.trim()) return setErreur("Le nom du client est requis.");
+    if (!form.montantHT || isNaN(parseFloat(form.montantHT))) return setErreur("Le montant HT doit être un nombre.");
+
+    if (form.programmerPlusieurs && !editId) {
+      if (editionsSelectionnees.length === 0) return setErreur("Indique un nombre de parutions valide.");
+      const groupeId = uid();
+      const { editionIdx, programmerPlusieurs, editionDepartIdx, nbParutions, ...base } = form;
+      const nouvellesVentes = editionsSelectionnees.map((edition) => ({ ...base, edition, groupeId, totalParutions: editionsSelectionnees.length, id: uid() }));
+      majVentes((vs) => [...vs, ...nouvellesVentes]);
+      resetForm();
+      setOnglet("suivi");
+      return;
+    }
+
+    const record = { ...form, edition: editions[form.editionIdx] };
+    if (editId) majVentes((vs) => vs.map((v) => (v.id === editId ? { ...record, id: editId } : v)));
+    else majVentes((vs) => [...vs, { ...record, id: uid() }]);
+    resetForm();
+    setOnglet("suivi");
+  }
+
+  function modifier(v) {
+    const idx = editions.findIndex((e) => editionKey(e) === editionKey(v.edition));
+    setForm({ ...emptyForm, ...v, editionIdx: idx >= 0 ? idx : 0 });
+    setEditId(v.id);
+    setOnglet("saisie");
+  }
+
+  function supprimer(id) { majVentes((vs) => vs.filter((v) => v.id !== id)); }
+  function supprimerGroupe(groupeId) { majVentes((vs) => vs.filter((v) => v.groupeId !== groupeId)); }
+
+  function toggleEtape(id, key) {
+    majVentes((vs) => vs.map((v) => {
+      if (v.id !== id) return v;
+      const aujourdhui = new Date().toISOString().slice(0, 10);
+      return { ...v, [key]: v[key] ? "" : aujourdhui };
+    }));
+  }
+  function changerStatutBAT(id, statutId) {
+    majVentes((vs) => vs.map((v) => {
+      if (v.id !== id) return v;
+      const aujourdhui = new Date().toISOString().slice(0, 10);
+      const nouveauStatut = v.statutBAT === statutId ? "" : statutId;
+      return { ...v, statutBAT: nouveauStatut, dateStatutBAT: nouveauStatut ? aujourdhui : "" };
+    }));
+  }
+  function togglePaye(id) { majVentes((vs) => vs.map((v) => (v.id === id ? { ...v, paye: !v.paye } : v))); }
+  function toggleTexte(id) { majVentes((vs) => vs.map((v) => (v.id === id ? { ...v, texteRecu: !v.texteRecu } : v))); }
+  function updateBilanExtra(key, field, value) { majBilanExtra((b) => ({ ...b, [key]: { ...b[key], [field]: value } })); }
+  function ajouterSurface() { const s = nouveauSurface.trim(); if (s && !surfaces.includes(s)) majSurfaces((x) => [...x, s]); setNouveauSurface(""); }
+  function ajouterPosition() { const p = nouveauPosition.trim(); if (p && !positions.includes(p)) majPositions((x) => [...x, p]); setNouveauPosition(""); }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f2ede2" }}>
+      <header style={{ background: "#241f18", color: "#f2ede2", padding: "20px 20px 0" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto" }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "#c9a26a" }}>ZEmag36</div>
+          <h1 style={{ margin: "2px 0 14px", fontSize: 24, fontFamily: "Georgia, serif" }}>Suivi des ventes publicitaires</h1>
+        </div>
+        <nav style={{ display: "flex", gap: 4, maxWidth: 980, margin: "0 auto" }}>
+          {[{ id: "saisie", label: editId ? "Modifier" : "Saisir" }, { id: "suivi", label: "Suivi" }, { id: "bilan", label: "Bilan annuel" }].map((t) => (
+            <div key={t.id} className="tab" onClick={() => { setOnglet(t.id); if (t.id !== "saisie") resetForm(); }}
+              style={{ padding: "10px 16px", fontSize: 14, fontWeight: 600, borderBottom: onglet === t.id ? "3px solid #c9a26a" : "3px solid transparent", color: onglet === t.id ? "#f2ede2" : "#a49b8a" }}>
+              {t.label}
+            </div>
+          ))}
+        </nav>
+      </header>
+
+      <main style={{ maxWidth: 980, margin: "0 auto", padding: "20px 20px 60px" }}>
+        {onglet !== "saisie" && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 12, marginBottom: 24 }}>
+            <Kpi label={`CA ${kpiLabelEdition}`} value={euros(kpiCA)} />
+            <Kpi label="À relancer (BAT)" value={kpiARelancer} accent={kpiARelancer ? "#a8412f" : null} />
+            <Kpi label="Dû (non payé)" value={euros(kpiDu)} accent={kpiDu ? "#b5792f" : null} />
+          </div>
+        )}
+
+        {onglet === "saisie" && (
+          <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 12, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontFamily: "Georgia, serif" }}>{editId ? "Modifier la vente" : "Nouvelle vente"}</h2>
+              {editId && <button type="button" className="btn" onClick={resetForm} style={{ background: "none", color: "#8b8478", display: "flex", alignItems: "center", gap: 4 }}>✕ Annuler</button>}
+            </div>
+            {erreur && <div style={{ background: "#fbe9e6", color: "#a8412f", padding: "8px 12px", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{erreur}</div>}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Champ label="Client" required><input value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} placeholder="Nom de l'entreprise" style={inputStyle} /></Champ>
+              {!form.programmerPlusieurs && (
+                <Champ label="Édition">
+                  <select value={form.editionIdx} onChange={(e) => setForm({ ...form, editionIdx: parseInt(e.target.value, 10) })} style={inputStyle}>
+                    {editions.map((e, i) => <option key={i} value={i}>{editionLabel(e)}</option>)}
+                  </select>
+                </Champ>
+              )}
+
+              <Champ label="Surface">
+                <select value={form.surface} onChange={(e) => setForm({ ...form, surface: e.target.value })} style={inputStyle}>
+                  {surfaces.map((s) => <option key={s}>{s}</option>)}
+                </select>
+              </Champ>
+              <Champ label="Position">
+                <select value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} style={inputStyle}>
+                  {positions.map((p) => <option key={p}>{p}</option>)}
+                </select>
+              </Champ>
+
+              <Champ label={form.programmerPlusieurs ? "Montant HT par parution (€)" : "Montant HT (€)"} required><input type="number" step="0.01" value={form.montantHT} onChange={(e) => setForm({ ...form, montantHT: e.target.value })} style={inputStyle} /></Champ>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 20, paddingBottom: 8 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                  <input type="checkbox" checked={form.texteRecu} onChange={(e) => setForm({ ...form, texteRecu: e.target.checked })} /> Texte reçu
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                  <input type="checkbox" checked={form.paye} onChange={(e) => setForm({ ...form, paye: e.target.checked })} /> Payé
+                </label>
+              </div>
+            </div>
+
+            {!editId && (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e2dac7" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700 }}>
+                  <input type="checkbox" checked={form.programmerPlusieurs} onChange={(e) => setForm({ ...form, programmerPlusieurs: e.target.checked, editionDepartIdx: form.editionIdx, nbParutions: "" })} />
+                  Programmer sur plusieurs mois (parutions récurrentes)
+                </label>
+                {form.programmerPlusieurs && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 12, color: "#8b8478", marginBottom: 10 }}>Indique le mois de départ et le nombre de parutions : les mois suivants sont sélectionnés automatiquement.</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <Champ label="Mois de départ">
+                        <select value={form.editionDepartIdx} onChange={(e) => setForm({ ...form, editionDepartIdx: parseInt(e.target.value, 10) })} style={inputStyle}>
+                          {editions.map((e, i) => <option key={i} value={i}>{editionLabel(e)}</option>)}
+                        </select>
+                      </Champ>
+                      <Champ label="Nombre de parutions">
+                        <input type="number" min="1" value={form.nbParutions} onChange={(e) => setForm({ ...form, nbParutions: e.target.value })} placeholder="ex. 11" style={inputStyle} />
+                      </Champ>
+                    </div>
+                    {editionsSelectionnees.length > 0 && (
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ fontSize: 12, color: "#5c5548", marginBottom: 6 }}>Éditions concernées : {editionsSelectionnees.map((e) => editionLabel(e)).join(", ")}</div>
+                        {form.montantHT && !isNaN(parseFloat(form.montantHT)) && (
+                          <div style={{ fontSize: 13, color: "#3d6b4a", fontWeight: 700 }}>
+                            Total du contrat : {euros(parseFloat(form.montantHT) * editionsSelectionnees.length)} sur {editionsSelectionnees.length} parution{editionsSelectionnees.length > 1 ? "s" : ""}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e2dac7" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Champ label="Statut du BAT">
+                  <select value={form.statutBAT} onChange={(e) => setForm({ ...form, statutBAT: e.target.value })} style={inputStyle}>
+                    <option value="">Pas encore envoyé</option>
+                    {BAT_STATUTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </Champ>
+                <Champ label="Statut publireportage">
+                  <select value={form.statutPublireportage} onChange={(e) => setForm({ ...form, statutPublireportage: e.target.value })} style={inputStyle}>
+                    <option value="">Non concerné</option>
+                    {STATUTS_PUBLIREPORTAGE.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </Champ>
+              </div>
+            </div>
+
+            <Champ label="Commentaire"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Remarques, précisions sur la vente..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} /></Champ>
+
+            <details style={{ marginTop: 14 }}>
+              <summary style={{ cursor: "pointer", fontSize: 12, color: "#8b8478" }}>Gérer les listes surface / position</summary>
+              <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ fontSize: 12, color: "#8b8478", marginBottom: 6 }}>Ajouter une surface</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input value={nouveauSurface} onChange={(e) => setNouveauSurface(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                    <button type="button" className="btn" onClick={ajouterSurface} style={{ background: "#e2dac7", padding: "0 14px", borderRadius: 8 }}>Ajouter</button>
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ fontSize: 12, color: "#8b8478", marginBottom: 6 }}>Ajouter une position</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input value={nouveauPosition} onChange={(e) => setNouveauPosition(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                    <button type="button" className="btn" onClick={ajouterPosition} style={{ background: "#e2dac7", padding: "0 14px", borderRadius: 8 }}>Ajouter</button>
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            <button type="button" className="btn" onClick={soumettre} style={{ marginTop: 18, background: "#b5792f", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
+              + {editId ? "Enregistrer les modifications" : "Ajouter la vente"}
+            </button>
+          </div>
+        )}
+
+        {onglet === "suivi" && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <label style={{ fontSize: 13, color: "#8b8478" }}>Filtrer :</label>
+              <select value={filtreEdition} onChange={(e) => setFiltreEdition(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
+                <option value="tous">Toutes les éditions</option>
+                {editions.map((e) => <option key={editionKey(e)} value={editionKey(e)}>{editionLabel(e)}</option>)}
+              </select>
+              <div style={{ marginLeft: "auto", fontSize: 13, color: "#5c5548" }}>
+                CA {filtreEdition === "tous" ? "total" : "de la période"} : <strong style={{ fontSize: 15 }}>{euros(caFiltre)}</strong>
+                {" "}· {venteAffichees.length} vente{venteAffichees.length > 1 ? "s" : ""}
+              </div>
+            </div>
+
+            {venteAffichees.length === 0 && (
+              <div style={{ background: "#fff", border: "1px dashed #e2dac7", borderRadius: 12, padding: 30, textAlign: "center", color: "#8b8478" }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
+                <div>Aucune vente enregistrée. Utilisez l'onglet « Saisir » pour en ajouter une.</div>
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {venteAffichees.map((v) => (
+                <div key={v.id} style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 10, padding: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{v.client}</div>
+                      <div style={{ fontSize: 13, color: "#8b8478" }}>
+                        {v.surface} · {v.position} · {editionLabel(v.edition)}
+                        {v.groupeId && <span style={{ marginLeft: 6, fontSize: 11, background: "#f0e6d2", color: "#8a6a2f", padding: "1px 8px", borderRadius: 999, fontWeight: 700 }}>Contrat {v.totalParutions} parutions</span>}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontWeight: 700, fontSize: 16 }}>{euros(parseFloat(v.montantHT))}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                    <span className="chip" style={{ background: v.texteRecu ? "#eaf3ec" : "#f2ede2", color: v.texteRecu ? "#3d6b4a" : "#8b8478" }} onClick={() => toggleTexte(v.id)}>
+                      {v.texteRecu ? "Texte reçu" : "Texte manquant"}
+                    </span>
+                    <span className="chip" style={{ background: v.paye ? "#eaf3ec" : "#fbe9e6", color: v.paye ? "#3d6b4a" : "#a8412f" }} onClick={() => togglePaye(v.id)}>
+                      € {v.paye ? "Payé" : "Non payé"}
+                    </span>
+                  </div>
+
+                  {v.notes && <div style={{ marginTop: 10, fontSize: 12, color: "#5c5548", background: "#f7f3ea", padding: "6px 10px", borderRadius: 6 }}>{v.notes}</div>}
+
+                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em", color: "#8b8478", marginTop: 12 }}>Circuit questionnaire / maquette</div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
+                    {BAT_ETAPES.map((e) => (
+                      <button key={e.key} className="btn" onClick={() => toggleEtape(v.id, e.key)} title={v[e.key] ? `Fait le ${v[e.key]}` : "Pas encore fait"}
+                        style={{ background: "none", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 68 }}>
+                        <span style={{ background: v[e.key] ? "#3d6b4a" : "#f2ede2", color: v[e.key] ? "#fff" : "#8b8478", width: 30, height: 30, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>
+                          {e.icon}
+                        </span>
+                        <span style={{ fontSize: 10, color: "#8b8478", textAlign: "center", lineHeight: 1.2 }}>{e.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em", color: "#8b8478", marginTop: 12 }}>Statut du BAT</div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    {BAT_STATUTS.map((s) => (
+                      <button key={s.id} className="btn" onClick={() => changerStatutBAT(v.id, s.id)}
+                        style={{ background: v.statutBAT === s.id ? s.color : "#f2ede2", color: v.statutBAT === s.id ? "#fff" : "#8b8478", padding: "5px 12px", borderRadius: 999, display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700 }}>
+                        {s.icon} {s.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em", color: "#8b8478", marginTop: 12 }}>Statut publireportage</div>
+                  <select value={v.statutPublireportage || ""} onChange={(e) => majVentes((vs) => vs.map((x) => (x.id === v.id ? { ...x, statutPublireportage: e.target.value } : x)))}
+                    style={{ ...inputStyle, marginTop: 6, width: "auto" }}>
+                    <option value="">Non concerné</option>
+                    {STATUTS_PUBLIREPORTAGE.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+
+                  <div style={{ display: "flex", gap: 12, marginTop: 10, flexWrap: "wrap" }}>
+                    <button className="btn" onClick={() => modifier(v)} style={{ background: "none", color: "#b5792f", display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>✎ Modifier</button>
+                    <button className="btn" onClick={() => supprimer(v.id)} style={{ background: "none", color: "#a8412f", display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>🗑 Supprimer</button>
+                    {v.groupeId && (
+                      <button className="btn" onClick={() => supprimerGroupe(v.groupeId)} style={{ background: "none", color: "#a8412f", display: "flex", alignItems: "center", gap: 4, fontSize: 13, textDecoration: "underline" }}>
+                        🗑 Supprimer tout le contrat ({v.totalParutions} parutions)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {onglet === "bilan" && (
+          <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 12, padding: 16, overflowX: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <label style={{ fontSize: 13, color: "#8b8478" }}>Année :</label>
+              <select value={filtreAnnee} onChange={(e) => setFiltreAnnee(parseInt(e.target.value, 10))} style={{ ...inputStyle, width: "auto" }}>
+                {anneesDisponibles.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+            <table>
+              <thead>
+                <tr><th>N°</th><th>Mois</th><th>Année</th><th>CA HT</th><th>Encaissé</th><th>Dû</th><th>Imprimerie</th><th>Infographie</th><th>Nbre pages</th></tr>
+              </thead>
+              <tbody>
+                {editions.filter((e) => e.annee === filtreAnnee).map((e) => {
+                  const k = editionKey(e);
+                  const liste = parEdition[k] || [];
+                  const caHT = liste.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0);
+                  const encaisse = liste.filter((v) => v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0);
+                  const du = caHT - encaisse;
+                  const extra = bilanExtra[k] || {};
+                  return (
+                    <tr key={k}>
+                      <td>{e.numero}</td>
+                      <td>{e.mois}</td>
+                      <td>{e.annee}</td>
+                      <td>{euros(caHT)}</td>
+                      <td>{euros(encaisse)}</td>
+                      <td style={{ color: du > 0 ? "#a8412f" : "inherit" }}>{euros(du)}</td>
+                      <td><input type="number" value={extra.imprimerie || ""} onChange={(ev) => updateBilanExtra(k, "imprimerie", ev.target.value)} style={{ ...inputStyle, width: 90, padding: "4px 6px" }} placeholder="€" /></td>
+                      <td><input type="number" value={extra.infographie || ""} onChange={(ev) => updateBilanExtra(k, "infographie", ev.target.value)} style={{ ...inputStyle, width: 90, padding: "4px 6px" }} placeholder="€" /></td>
+                      <td><input type="number" value={extra.nbrePages || ""} onChange={(ev) => updateBilanExtra(k, "nbrePages", ev.target.value)} style={{ ...inputStyle, width: 70, padding: "4px 6px" }} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ fontWeight: 700 }}>
+                  <td colSpan={3}>TOTAL {filtreAnnee}</td>
+                  <td>{euros(ventesAnnee.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0))}</td>
+                  <td>{euros(ventesAnnee.filter((v) => v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0))}</td>
+                  <td>{euros(ventesAnnee.filter((v) => !v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0))}</td>
+                  <td>{euros(editions.filter((e) => e.annee === filtreAnnee).reduce((s, e) => s + (parseFloat((bilanExtra[editionKey(e)] || {}).imprimerie) || 0), 0))}</td>
+                  <td>{euros(editions.filter((e) => e.annee === filtreAnnee).reduce((s, e) => s + (parseFloat((bilanExtra[editionKey(e)] || {}).infographie) || 0), 0))}</td>
+                  <td>{editions.filter((e) => e.annee === filtreAnnee).reduce((s, e) => s + (parseFloat((bilanExtra[editionKey(e)] || {}).nbrePages) || 0), 0)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
