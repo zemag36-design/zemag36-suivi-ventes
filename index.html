@@ -190,6 +190,7 @@ function App() {
   const [nouveauSurface, setNouveauSurface] = useState("");
   const [nouveauPosition, setNouveauPosition] = useState("");
   const [erreur, setErreur] = useState("");
+  const [recherche, setRecherche] = useState("");
 
   const docRef = db.collection("zemag").doc("data");
 
@@ -242,9 +243,13 @@ function App() {
   }, [form.programmerPlusieurs, form.editionDepartIdx, form.nbParutions, editions]);
 
   const venteAffichees = useMemo(() => {
-    const liste = filtreEdition === "tous" ? ventes : (parEdition[filtreEdition] || []);
+    let liste = filtreEdition === "tous" ? ventes : (parEdition[filtreEdition] || []);
+    if (recherche.trim()) {
+      const q = recherche.trim().toLowerCase();
+      liste = liste.filter((v) => v.client.toLowerCase().includes(q));
+    }
     return [...liste].sort((a, b) => a.client.localeCompare(b.client));
-  }, [ventes, parEdition, filtreEdition]);
+  }, [ventes, parEdition, filtreEdition, recherche]);
 
   const caFiltre = useMemo(() => venteAffichees.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0), [venteAffichees]);
 
@@ -459,6 +464,9 @@ function App() {
 
         {onglet === "suivi" && (
           <div>
+            <div style={{ marginBottom: 14 }}>
+              <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher un client..." style={{ ...inputStyle, marginBottom: 10, fontSize: 15, padding: "10px 14px", background: "#fff", border: "1px solid #e2dac7", borderRadius: 10 }} />
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
               <label style={{ fontSize: 13, color: "#8b8478" }}>Filtrer :</label>
               <select value={filtreEdition} onChange={(e) => setFiltreEdition(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
