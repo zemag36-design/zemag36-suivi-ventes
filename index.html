@@ -482,30 +482,15 @@ function App() {
                 {" "}· {venteAffichees.length} vente{venteAffichees.length > 1 ? "s" : ""}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-              {(() => {
-                const base = filtreEdition === "tous" ? ventes : (parEdition[filtreEdition] || []);
-                const filteredBase = recherche.trim() ? base.filter((v) => v.client.toLowerCase().includes(recherche.trim().toLowerCase())) : base;
-                const counts = { tous: filteredBase.length, non_envoye: 0, envoye: 0, modification: 0, valide: 0 };
-                filteredBase.forEach((v) => { if (!v.statutBAT) counts.non_envoye++; else counts[v.statutBAT] = (counts[v.statutBAT] || 0) + 0 || counts[v.statutBAT]++; });
-                counts.envoye = filteredBase.filter((v) => v.statutBAT === "envoye").length;
-                counts.modification = filteredBase.filter((v) => v.statutBAT === "modification").length;
-                counts.valide = filteredBase.filter((v) => v.statutBAT === "valide").length;
-                counts.non_envoye = filteredBase.filter((v) => !v.statutBAT).length;
-                return [
-                  { id: "tous", label: "Tous", count: counts.tous, color: "#b5792f" },
-                  { id: "non_envoye", label: "Pas encore envoyé", count: counts.non_envoye, color: "#8b8478" },
-                  { id: "envoye", label: "BAT envoyé", count: counts.envoye, color: "#b5792f" },
-                  { id: "modification", label: "Modification demandée", count: counts.modification, color: "#a8412f" },
-                  { id: "valide", label: "BAT validé", count: counts.valide, color: "#3d6b4a" },
-                ].map((f) => (
-                  <button key={f.id} className="btn" onClick={() => setFiltreBAT(f.id)}
-                    style={{ background: filtreBAT === f.id ? f.color : "#fff", color: filtreBAT === f.id ? "#fff" : "#5c5548", padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: filtreBAT === f.id ? "none" : "1px solid #e2dac7", display: "flex", alignItems: "center", gap: 6 }}>
-                    {f.label}
-                    <span style={{ background: filtreBAT === f.id ? "rgba(255,255,255,0.3)" : "#f2ede2", padding: "1px 7px", borderRadius: 999, fontSize: 11 }}>{f.count}</span>
-                  </button>
-                ));
-              })()}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <label style={{ fontSize: 13, color: "#8b8478" }}>Statut BAT :</label>
+              <select value={filtreBAT} onChange={(e) => setFiltreBAT(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
+                <option value="tous">Tous les statuts</option>
+                <option value="non_envoye">Pas encore envoyé</option>
+                <option value="envoye">BAT envoyé</option>
+                <option value="modification">Modification demandée</option>
+                <option value="valide">BAT validé</option>
+              </select>
             </div>
 
             {venteAffichees.length === 0 && (
