@@ -187,6 +187,7 @@ function App() {
   const [nouveauPosition, setNouveauPosition] = useState("");
   const [erreur, setErreur] = useState("");
   const [recherche, setRecherche] = useState("");
+  const [filtreBAT, setFiltreBAT] = useState("tous");
 
   const docRef = db.collection("zemag").doc("data");
 
@@ -244,8 +245,15 @@ function App() {
       const q = recherche.trim().toLowerCase();
       liste = liste.filter((v) => v.client.toLowerCase().includes(q));
     }
-    return [...liste].sort((a, b) => a.client.localeCompare(b.client));
-  }, [ventes, parEdition, filtreEdition, recherche]);
+    if (filtreBAT === "non_valide") liste = liste.filter((v) => v.statutBAT !== "valide");
+    else if (filtreBAT !== "tous") liste = liste.filter((v) => v.statutBAT === filtreBAT);
+    return [...liste].sort((a, b) => {
+      const ia = editions.findIndex((e) => editionKey(e) === editionKey(a.edition));
+      const ib = editions.findIndex((e) => editionKey(e) === editionKey(b.edition));
+      if (ia !== ib) return ib - ia;
+      return a.client.localeCompare(b.client);
+    });
+  }, [ventes, parEdition, filtreEdition, recherche, filtreBAT, editions]);
 
   const caFiltre = useMemo(() => venteAffichees.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0), [venteAffichees]);
 
@@ -473,6 +481,20 @@ function App() {
                 CA {filtreEdition === "tous" ? "total" : "de la période"} : <strong style={{ fontSize: 15 }}>{euros(caFiltre)}</strong>
                 {" "}· {venteAffichees.length} vente{venteAffichees.length > 1 ? "s" : ""}
               </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+              {[
+                { id: "tous", label: "Tous" },
+                { id: "non_valide", label: "BAT non validés" },
+                { id: "envoye", label: "BAT envoyé" },
+                { id: "modification", label: "Modification demandée" },
+                { id: "valide", label: "BAT validé" },
+              ].map((f) => (
+                <button key={f.id} className="btn" onClick={() => setFiltreBAT(f.id)}
+                  style={{ background: filtreBAT === f.id ? "#b5792f" : "#fff", color: filtreBAT === f.id ? "#fff" : "#5c5548", padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: filtreBAT === f.id ? "none" : "1px solid #e2dac7" }}>
+                  {f.label}
+                </button>
+              ))}
             </div>
 
             {venteAffichees.length === 0 && (
