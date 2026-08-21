@@ -422,20 +422,12 @@ function App() {
             )}
 
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e2dac7" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Champ label="Statut du BAT">
-                  <select value={form.statutBAT} onChange={(e) => setForm({ ...form, statutBAT: e.target.value })} style={inputStyle}>
-                    <option value="">Pas encore envoyé</option>
-                    {BAT_STATUTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                  </select>
-                </Champ>
-                <Champ label="Statut publireportage">
-                  <select value={form.statutPublireportage} onChange={(e) => setForm({ ...form, statutPublireportage: e.target.value })} style={inputStyle}>
-                    <option value="">Non concerné</option>
-                    {STATUTS_PUBLIREPORTAGE.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                  </select>
-                </Champ>
-              </div>
+              <Champ label="Statut publireportage">
+                <select value={form.statutPublireportage} onChange={(e) => setForm({ ...form, statutPublireportage: e.target.value })} style={inputStyle}>
+                  <option value="">Non concerné</option>
+                  {STATUTS_PUBLIREPORTAGE.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                </select>
+              </Champ>
             </div>
 
             <Champ label="Commentaire"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Remarques, précisions sur la vente..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} /></Champ>
