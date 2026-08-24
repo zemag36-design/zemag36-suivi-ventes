@@ -80,6 +80,13 @@ async function connexionGoogle() {
   }
 }
 
+window.onerror = function(msg, src, line, col, err) {
+  var d = document.createElement("div");
+  d.style.cssText = "position:fixed;top:0;left:0;right:0;background:#fff3f0;color:#a8412f;padding:20px;z-index:99999;font-size:14px;white-space:pre-wrap;border-bottom:3px solid #a8412f";
+  d.textContent = "ERREUR: " + msg + "\nLigne: " + line + "\n" + (err ? err.stack : "");
+  document.body.appendChild(d);
+};
+
 function deverrouiller() {
   document.getElementById("login-screen").style.display = "none";
   document.getElementById("root").style.display = "block";
@@ -962,9 +969,37 @@ function App() {
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, info: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    this.setState({ info });
+  }
+  render() {
+    if (this.state.hasError) {
+      return React.createElement("div", { style: { padding: 40, background: "#fff3f0", minHeight: "100vh" } },
+        React.createElement("h2", { style: { color: "#a8412f" } }, "Une erreur est survenue"),
+        React.createElement("pre", { style: { background: "#fff", padding: 16, borderRadius: 8, overflow: "auto", fontSize: 13 } },
+          String(this.state.error) + "\n\n" + (this.state.info ? this.state.info.componentStack : "")
+        ),
+        React.createElement("button", {
+          onClick: () => { this.setState({ hasError: false, error: null, info: null }); },
+          style: { marginTop: 16, padding: "10px 20px", background: "#3d6b4a", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, cursor: "pointer" }
+        }, "Réessayer")
+      );
+    }
+    return this.props.children;
+  }
+}
+
 window.lancerApp = function() {
   const root = ReactDOM.createRoot(document.getElementById("root"));
-  root.render(<App />);
+  root.render(React.createElement(ErrorBoundary, null, React.createElement(App)));
 };
 </script>
 </body>
