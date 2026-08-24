@@ -466,6 +466,17 @@ function App() {
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
+  const histoListe = Array.isArray(historiqueBC) ? historiqueBC : [];
+  const histoAnnees = useMemo(() => {
+    const a = [...new Set(histoListe.map(b => b.anneeBon || new Date().getFullYear()))].sort((x, y) => y - x);
+    return a.length > 0 ? a : [new Date().getFullYear()];
+  }, [histoListe]);
+  const histoFiltree = useMemo(() => {
+    return histoListe
+      .filter(b => (b.anneeBon || new Date().getFullYear()) === filtreAnneeBC)
+      .sort((a, b) => String(b.dateArchive || "").localeCompare(String(a.dateArchive || "")));
+  }, [histoListe, filtreAnneeBC]);
+
   return (
     <div style={{ minHeight: "100vh", background: "#f2ede2" }}>
       <header style={{ background: "#241f18", color: "#f2ede2", padding: "20px 20px 0" }}>
@@ -902,55 +913,50 @@ function App() {
           </div>
         )}
 
-        {onglet === "historique_bc" && (() => {
-          const liste = Array.isArray(historiqueBC) ? historiqueBC : [];
-          const annees = [...new Set(liste.map(b => b.anneeBon || new Date().getFullYear()))].sort((a, b) => b - a);
-          if (annees.length === 0) annees.push(new Date().getFullYear());
-          const listeFiltree = liste.filter(b => (b.anneeBon || new Date().getFullYear()) === filtreAnneeBC).sort((a, b) => String(b.dateArchive || "").localeCompare(String(a.dateArchive || "")));
-          return (
-            <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 12, padding: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h2 style={{ margin: 0, fontSize: 17, fontFamily: "Georgia, serif" }}>Historique des bons de commande</h2>
-                <select value={filtreAnneeBC} onChange={(e) => setFiltreAnneeBC(parseInt(e.target.value))} style={{ ...inputStyle, width: "auto" }}>
-                  {annees.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-              </div>
-              {listeFiltree.length === 0 ? (
-                <div style={{ color: "#8b8478", fontSize: 14, padding: 20, textAlign: "center" }}>Aucun bon de commande archivé pour {filtreAnneeBC}</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {listeFiltree.map(b => {
-                    const totalHT = (Array.isArray(b.lignes) ? b.lignes : []).reduce((s, l) => s + ((parseFloat(l.tarifRemise) || parseFloat(l.tarif) || 0) * (parseInt(l.nbParutions) || 0)), 0);
-                    const dateArc = b.dateArchive ? new Date(b.dateArchive).toLocaleDateString("fr-FR") : "";
-                    const dateBon = b.date ? new Date(b.date + "T00:00:00").toLocaleDateString("fr-FR") : "";
-                    return (
-                      <div key={b.id} style={{ border: "1px solid #e2dac7", borderRadius: 8, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{b.raisonSociale || "Sans nom"}</div>
-                          <div style={{ fontSize: 12, color: "#8b8478" }}>
-                            Bon du {dateBon || "?"} — Archivé le {dateArc}
-                            {totalHT > 0 && <span style={{ marginLeft: 8, color: "#3d6b4a", fontWeight: 600 }}>{euros(totalHT)} HT</span>}
-                          </div>
-                          <div style={{ fontSize: 11, color: "#a49b8a", marginTop: 2 }}>
-                            {(Array.isArray(b.lignes) ? b.lignes : []).filter(l => l && l.rubrique).map(l => l.rubrique).join(", ")}
-                          </div>
+        {onglet === "historique_bc" && (
+          <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 12, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontFamily: "Georgia, serif" }}>Historique des bons de commande</h2>
+              <select value={filtreAnneeBC} onChange={(e) => setFiltreAnneeBC(parseInt(e.target.value))} style={{ ...inputStyle, width: "auto" }}>
+                {histoAnnees.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+            {histoFiltree.length === 0 ? (
+              <div style={{ color: "#8b8478", fontSize: 14, padding: 20, textAlign: "center" }}>Aucun bon de commande archivé pour {filtreAnneeBC}</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {histoFiltree.map(b => {
+                  const lignes = Array.isArray(b.lignes) ? b.lignes : [];
+                  const totalHT = lignes.reduce((s, l) => s + ((parseFloat(l.tarifRemise) || parseFloat(l.tarif) || 0) * (parseInt(l.nbParutions) || 0)), 0);
+                  const dateArc = b.dateArchive ? new Date(b.dateArchive).toLocaleDateString("fr-FR") : "";
+                  const dateBon = b.date ? new Date(b.date + "T00:00:00").toLocaleDateString("fr-FR") : "";
+                  return (
+                    <div key={b.id} style={{ border: "1px solid #e2dac7", borderRadius: 8, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{b.raisonSociale || "Sans nom"}</div>
+                        <div style={{ fontSize: 12, color: "#8b8478" }}>
+                          Bon du {dateBon || "?"} — Archivé le {dateArc}
+                          {totalHT > 0 && <span style={{ marginLeft: 8, color: "#3d6b4a", fontWeight: 600 }}>{euros(totalHT)} HT</span>}
                         </div>
-                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                          <button className="btn" onClick={() => chargerArchive(b)} style={{ background: "#f7f3ea", border: "1px solid #e2dac7", padding: "6px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer" }} title="Charger dans le bon de commande">
-                            Charger
-                          </button>
-                          <button className="btn" onClick={() => supprimerArchive(b.id)} style={{ background: "#fff", border: "1px solid #e2dac7", padding: "6px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer", color: "#a8412f" }} title="Supprimer de l'historique">
-                            Supprimer
-                          </button>
+                        <div style={{ fontSize: 11, color: "#a49b8a", marginTop: 2 }}>
+                          {lignes.filter(l => l && l.rubrique).map(l => l.rubrique).join(", ")}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button className="btn" onClick={() => chargerArchive(b)} style={{ background: "#f7f3ea", border: "1px solid #e2dac7", padding: "6px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer" }} title="Charger dans le bon de commande">
+                          Charger
+                        </button>
+                        <button className="btn" onClick={() => supprimerArchive(b.id)} style={{ background: "#fff", border: "1px solid #e2dac7", padding: "6px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer", color: "#a8412f" }} title="Supprimer de l'historique">
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
