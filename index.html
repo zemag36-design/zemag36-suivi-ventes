@@ -88,7 +88,7 @@ function deverrouiller() {
 </script>
 
 <script type="text/babel">
-const { useState, useMemo, useEffect } = React;
+const { useState, useMemo, useEffect, useRef, useCallback } = React;
 
 const SURFACES_DEFAUT = ["1 page", "2 pages", "1/2", "1/4", "1/8", "1/16", "Bandeau", "Module bas", "Petit module", "Publireportage double page", "Publireportage page", "Publireportage 1/2 page"];
 const POSITIONS_DEFAUT = ["Première page", "Page différente", "Page intérieure", "Avant dernière", "Dernière page", "Jaquette Recto", "Jaquette Verso", "Page 2", "Page 3", "Centrale", "Double page", "Couverture", "Dossier habitat", "Artisan", "Sudoku", "Agenda", "Brèves", "Terrasse de l'été"];
@@ -220,7 +220,7 @@ function App() {
       if (d.bilanExtra !== undefined) { setBilanExtra(d.bilanExtra); sauverLocal("zemag-pub-bilan", d.bilanExtra); }
       if (d.surfaces !== undefined) { setSurfaces(d.surfaces); sauverLocal("zemag-pub-surfaces", d.surfaces); }
       if (d.positions !== undefined) { setPositions(d.positions); sauverLocal("zemag-pub-positions", d.positions); }
-      if (d.bonCommande !== undefined) { setBonForm(d.bonCommande); sauverLocal("zemag-pub-bon", d.bonCommande); }
+      if (d.bonCommande !== undefined && !bonEditingRef.current) { setBonForm(d.bonCommande); sauverLocal("zemag-pub-bon", d.bonCommande); }
     });
     return () => unsub();
   }, []);
@@ -332,11 +332,18 @@ function App() {
   function ajouterSurface() { const s = nouveauSurface.trim(); if (s && !surfaces.includes(s)) majSurfaces((x) => [...x, s]); setNouveauSurface(""); }
   function ajouterPosition() { const p = nouveauPosition.trim(); if (p && !positions.includes(p)) majPositions((x) => [...x, p]); setNouveauPosition(""); }
 
+  const bonEditingRef = useRef(false);
+  const bonTimerRef = useRef(null);
   function majBon(fn) {
+    bonEditingRef.current = true;
     setBonForm(f => {
       const nf = fn(f);
       sauverLocal("zemag-pub-bon", nf);
-      docRef.set({ bonCommande: nf }, { merge: true }).catch(() => {});
+      if (bonTimerRef.current) clearTimeout(bonTimerRef.current);
+      bonTimerRef.current = setTimeout(() => {
+        docRef.set({ bonCommande: nf }, { merge: true }).catch(() => {});
+        setTimeout(() => { bonEditingRef.current = false; }, 1000);
+      }, 1500);
       return nf;
     });
   }
