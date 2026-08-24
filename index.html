@@ -375,9 +375,11 @@ function App() {
   }
   function archiverBon() {
     if (!bonForm.raisonSociale.trim()) return;
-    const archive = { ...bonForm, id: uid(), dateArchive: new Date().toISOString() };
+    const archive = JSON.parse(JSON.stringify(bonForm));
+    archive.id = uid();
+    archive.dateArchive = new Date().toISOString();
     majHistoriqueBC(h => [...h, archive]);
-    resetBon();
+    setTimeout(() => { resetBon(); setOnglet("historique_bc"); }, 300);
   }
   function supprimerArchive(id) { majHistoriqueBC(h => h.filter(b => b.id !== id)); }
   function chargerArchive(archive) {
@@ -423,10 +425,20 @@ function App() {
     + '<div style="display:flex;gap:12px;margin-bottom:5px"><div style="flex:1"><div style="font-weight:700;font-size:8pt;margin-bottom:2px">CALENDRIER DE PARUTION : ' + bonForm.anneeBon + '</div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="border:1px solid #999;padding:1px;background:#f0e6d2;font-size:6pt;width:18px"></th>' + calMoisH + '</tr></thead><tbody>' + calRows + '</tbody></table></div>'
     + '<div style="width:150px;display:flex;flex-direction:column;justify-content:flex-end"><table style="border-collapse:collapse;margin-left:auto"><tr><td style="padding:2px 6px;font-size:8pt">Total HT</td><td style="padding:2px 6px;font-weight:700;text-align:right;font-size:8pt">' + fmt(totalHT) + '</td></tr><tr><td style="padding:2px 6px;font-size:8pt">TVA 20%</td><td style="padding:2px 6px;text-align:right;font-size:8pt">' + fmt(tva) + '</td></tr><tr style="border-top:2px solid #222"><td style="padding:3px 6px;font-weight:700;font-size:9pt">Total TTC</td><td style="padding:3px 6px;font-weight:700;text-align:right;font-size:10pt">' + fmt(ttc) + '</td></tr></table></div></div>'
     + '<div style="display:flex;gap:12px"><div style="flex:1;font-size:8pt"><div style="margin-bottom:4px"><strong>Date :</strong> ' + dateFormatee + '</div><div style="margin-bottom:4px"><strong>MODE DE PAIEMENT :</strong> ' + (modePaiementLabels[bonForm.modePaiement]||'') + '</div><div><strong>Observations :</strong> ' + (bonForm.observations||'') + '</div></div><div style="flex:1;text-align:center;font-size:8pt"><div style="font-size:7pt;color:#666;margin-bottom:2px">Cachet commercial du client</div><div style="border:1px dashed #ccc;height:35px;margin-bottom:5px"></div><div style="font-size:7pt;color:#666;margin-bottom:2px">Signature du client</div><div style="border:1px dashed #ccc;height:25px;margin-bottom:4px"></div><div><strong>Nom et qualité :</strong> ' + (bonForm.nomQualite||'') + '</div></div></div>'
-    + '</div><script>window.onload=function(){window.print();};<\/script></body></html>';
+    + '</div></body></html>';
 
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); }
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:297mm;height:210mm;border:none';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(() => { try { document.body.removeChild(iframe); } catch(e) {} }, 3000);
+    }, 500);
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
