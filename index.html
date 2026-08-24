@@ -129,6 +129,8 @@ const STATUTS_PUBLIREPORTAGE = [
   { id: "mise_en_page_validee", label: "Texte envoyé à la relecture" },
 ];
 
+const MOIS_BON = ["Janv.", "Fév.", "Mars", "Avril", "Mai", "Juin", "Juil.", "Sept.", "Oct.", "Nov.", "Déc."];
+
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function euros(n) { return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0); }
 function editionLabel(e) { return e ? `${e.numero} - ${e.mois} ${e.annee}` : "Édition non précisée"; }
@@ -188,6 +190,14 @@ function App() {
   const [erreur, setErreur] = useState("");
   const [recherche, setRecherche] = useState("");
   const [filtreBAT, setFiltreBAT] = useState("tous");
+  const [bonForm, setBonForm] = useState(() => chargerLocal("zemag-pub-bon", {
+    date: "", raisonSociale: "", adresse: "", codePostal: "", ville: "",
+    email: "", tel: "", mobile: "",
+    lignes: Array.from({ length: 5 }, () => ({ rubrique: "", format: "", tarif: "", nbParutions: "", tarifRemise: "" })),
+    calendrier: Array.from({ length: 5 }, () => Array(11).fill(false)),
+    modePaiement: "", observations: "", nomQualite: "",
+    anneeBon: new Date().getFullYear(),
+  }));
 
   const docRef = db.collection("zemag").doc("data");
 
@@ -199,7 +209,7 @@ function App() {
   useEffect(() => {
     docRef.get().then((doc) => {
       if (!doc.exists) {
-        docRef.set({ ventes, bilanExtra, surfaces, positions }).catch(() => {});
+        docRef.set({ ventes, bilanExtra, surfaces, positions, bonCommande: bonForm }).catch(() => {});
       }
     }).catch(() => {});
 
@@ -210,6 +220,7 @@ function App() {
       if (d.bilanExtra !== undefined) { setBilanExtra(d.bilanExtra); sauverLocal("zemag-pub-bilan", d.bilanExtra); }
       if (d.surfaces !== undefined) { setSurfaces(d.surfaces); sauverLocal("zemag-pub-surfaces", d.surfaces); }
       if (d.positions !== undefined) { setPositions(d.positions); sauverLocal("zemag-pub-positions", d.positions); }
+      if (d.bonCommande !== undefined) { setBonForm(d.bonCommande); sauverLocal("zemag-pub-bon", d.bonCommande); }
     });
     return () => unsub();
   }, []);
@@ -321,6 +332,73 @@ function App() {
   function ajouterSurface() { const s = nouveauSurface.trim(); if (s && !surfaces.includes(s)) majSurfaces((x) => [...x, s]); setNouveauSurface(""); }
   function ajouterPosition() { const p = nouveauPosition.trim(); if (p && !positions.includes(p)) majPositions((x) => [...x, p]); setNouveauPosition(""); }
 
+  function majBon(fn) {
+    setBonForm(f => {
+      const nf = fn(f);
+      sauverLocal("zemag-pub-bon", nf);
+      docRef.set({ bonCommande: nf }, { merge: true }).catch(() => {});
+      return nf;
+    });
+  }
+  function majBonLigne(idx, field, value) {
+    majBon(f => ({ ...f, lignes: f.lignes.map((l, i) => i === idx ? { ...l, [field]: value } : l) }));
+  }
+  function majBonCal(li, mi) {
+    majBon(f => ({ ...f, calendrier: f.calendrier.map((r, i) => i === li ? r.map((v, j) => j === mi ? !v : v) : r) }));
+  }
+  function totalBonLigne(l) {
+    const prix = parseFloat(l.tarifRemise) || parseFloat(l.tarif) || 0;
+    const nb = parseInt(l.nbParutions) || 0;
+    return prix * nb;
+  }
+  function resetBon() {
+    majBon(() => ({
+      date: "", raisonSociale: "", adresse: "", codePostal: "", ville: "",
+      email: "", tel: "", mobile: "",
+      lignes: Array.from({ length: 5 }, () => ({ rubrique: "", format: "", tarif: "", nbParutions: "", tarifRemise: "" })),
+      calendrier: Array.from({ length: 5 }, () => Array(11).fill(false)),
+      modePaiement: "", observations: "", nomQualite: "",
+      anneeBon: new Date().getFullYear(),
+    }));
+  }
+  function imprimerBon() {
+    const moisComplets = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Sept.", "Oct.", "Nov.", "Déc."];
+    const dateFormatee = bonForm.date ? new Date(bonForm.date + "T00:00:00").toLocaleDateString("fr-FR") : "......./......./...............";
+    const totalHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
+    const tva = totalHT * 0.2;
+    const ttc = totalHT + tva;
+    const fmt = (n) => n ? n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
+
+    const lignesHTML = bonForm.lignes.map((l, i) => {
+      const tot = totalBonLigne(l);
+      const td = 'style="border:1px solid #999;padding:6px"';
+      const tdr = 'style="border:1px solid #999;padding:6px;text-align:right"';
+      const tdc = 'style="border:1px solid #999;padding:6px;text-align:center"';
+      return '<tr><td ' + tdc + '><strong>' + (i+1) + '</strong></td><td ' + td + '>' + (l.rubrique||'') + '</td><td ' + td + '>' + (l.format||'') + '</td><td ' + tdr + '>' + (l.tarif ? fmt(parseFloat(l.tarif)) : '') + '</td><td ' + tdc + '>' + (l.nbParutions||'') + '</td><td ' + tdr + '>' + (l.tarifRemise ? fmt(parseFloat(l.tarifRemise)) : '') + '</td><td ' + tdr + '><strong>' + (tot ? fmt(tot) : '') + '</strong></td></tr>';
+    }).join("");
+
+    const calMoisH = moisComplets.map(m => '<th style="border:1px solid #999;padding:4px 2px;font-size:8pt;text-align:center;background:#f0e6d2">' + m + '</th>').join("");
+    const calRows = (bonForm.calendrier || []).map((row, i) => {
+      const cells = (row || []).map(checked => '<td style="border:1px solid #999;padding:4px;text-align:center;font-size:12pt">' + (checked ? "✓" : "") + '</td>').join("");
+      return '<tr><td style="border:1px solid #999;padding:4px;text-align:center;font-weight:700">' + (i+1) + '</td>' + cells + '</tr>';
+    }).join("");
+
+    const modePaiementLabels = { cheque: "CHÈQUE", reception_facture: "RÉCEPTION DE FACTURE", virement: "VIREMENT", "30_jours": "30 JOURS" };
+
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4;margin:10mm 12mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#222}</style></head><body><div style="max-width:210mm;margin:0 auto;padding:10mm">'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px"><div><div style="font-size:42pt;font-weight:700;color:#c9a26a;line-height:1">' + bonForm.anneeBon + '</div><div style="margin-top:6px;font-size:10pt">Bon de commande le : <strong>' + dateFormatee + '</strong></div></div><div style="text-align:right;font-size:8pt;line-height:1.5"><div style="font-size:22pt;font-weight:700;color:#b5792f;font-family:Georgia,serif;letter-spacing:1px">ZEmag</div><div style="font-size:7pt;color:#666;margin-bottom:4px">LE magazine de tout ce qui se passe près de chez vous</div><div>www.zemag36.com</div><div style="margin-top:6px;font-weight:700">CB MediaCom SAS</div><div>SIRET : 807 882 170 00010</div><div>91 rue Roland Garros - 36000 Châteauroux</div><div>Christine Barbat</div><div>06 86 20 30 01</div><div>zemag36@gmail.com</div></div></div>'
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:14px"><tr><td style="border:1px solid #999;padding:6px;font-weight:700;width:130px;background:#f7f3ea">RAISON SOCIALE :</td><td style="border:1px solid #999;padding:6px" colspan="3">' + (bonForm.raisonSociale||'') + '</td></tr><tr><td style="border:1px solid #999;padding:6px;font-weight:700;background:#f7f3ea">Adresse :</td><td style="border:1px solid #999;padding:6px">' + (bonForm.adresse||'') + '</td><td style="border:1px solid #999;padding:6px;font-weight:700;width:100px;background:#f7f3ea">Code postal :</td><td style="border:1px solid #999;padding:6px;width:100px">' + (bonForm.codePostal||'') + '</td></tr><tr><td style="border:1px solid #999;padding:6px;font-weight:700;background:#f7f3ea">Ville :</td><td style="border:1px solid #999;padding:6px">' + (bonForm.ville||'') + '</td><td style="border:1px solid #999;padding:6px;font-weight:700;background:#f7f3ea">Email :</td><td style="border:1px solid #999;padding:6px">' + (bonForm.email||'') + '</td></tr><tr><td style="border:1px solid #999;padding:6px;font-weight:700;background:#f7f3ea">Tel :</td><td style="border:1px solid #999;padding:6px">' + (bonForm.tel||'') + '</td><td style="border:1px solid #999;padding:6px;font-weight:700;background:#f7f3ea">Mobile :</td><td style="border:1px solid #999;padding:6px">' + (bonForm.mobile||'') + '</td></tr></table>'
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:4px"><thead><tr><th style="border:1px solid #999;padding:6px;background:#f0e6d2;font-size:8pt;text-transform:uppercase;width:30px"></th><th style="border:1px solid #999;padding:6px;background:#f0e6d2;font-size:8pt;text-transform:uppercase">Rubrique</th><th style="border:1px solid #999;padding:6px;background:#f0e6d2;font-size:8pt;text-transform:uppercase">Format</th><th style="border:1px solid #999;padding:6px;background:#f0e6d2;font-size:8pt;text-transform:uppercase">Tarif</th><th style="border:1px solid #999;padding:6px;background:#f0e6d2;font-size:8pt;text-transform:uppercase;white-space:nowrap">Nombre de<br/>Parutions</th><th style="border:1px solid #999;padding:6px;background:#f0e6d2;font-size:8pt;text-transform:uppercase;white-space:nowrap">Tarif remisé</th><th style="border:1px solid #999;padding:6px;background:#f0e6d2;font-size:8pt;text-transform:uppercase">Total HT</th></tr></thead><tbody>' + lignesHTML + '</tbody></table>'
+    + '<div style="font-size:7pt;color:#666;margin-bottom:14px">Format en mm : Page : 170 x 240 - 1/2 Page : 157 x 114 - 1/4 Page : 77 x 114</div>'
+    + '<div style="display:flex;gap:20px;margin-bottom:14px"><div style="flex:1"><div style="font-weight:700;font-size:9pt;margin-bottom:4px">CALENDRIER DE PARUTION : ' + bonForm.anneeBon + '</div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="border:1px solid #999;padding:4px;background:#f0e6d2;font-size:7pt;width:24px"></th>' + calMoisH + '</tr></thead><tbody>' + calRows + '</tbody></table></div><div style="width:160px"><table style="border-collapse:collapse;margin-left:auto"><tr><td style="padding:4px 8px;font-size:9pt">Total HT</td><td style="padding:4px 8px;font-weight:700;text-align:right">' + fmt(totalHT) + '</td></tr><tr><td style="padding:4px 8px;font-size:9pt">TVA 20%</td><td style="padding:4px 8px;text-align:right">' + fmt(tva) + '</td></tr><tr style="border-top:2px solid #222"><td style="padding:6px 8px;font-weight:700">Total TTC</td><td style="padding:6px 8px;font-weight:700;text-align:right;font-size:12pt">' + fmt(ttc) + '</td></tr></table></div></div>'
+    + '<div style="display:flex;gap:20px;margin-top:10px"><div style="flex:1"><div style="margin-bottom:8px"><strong>Date :</strong> ' + dateFormatee + '</div><div style="margin-bottom:8px"><strong>MODE DE PAIEMENT :</strong> ' + (modePaiementLabels[bonForm.modePaiement]||'') + '</div><div><strong>Observations :</strong> ' + (bonForm.observations||'') + '</div></div><div style="flex:1;text-align:center"><div style="font-size:9pt;color:#666;margin-bottom:4px">Cachet commercial du client</div><div style="border:1px dashed #ccc;height:60px;margin-bottom:10px"></div><div style="font-size:9pt;color:#666;margin-bottom:4px">Signature du client</div><div style="border:1px dashed #ccc;height:40px;margin-bottom:6px"></div><div style="font-size:9pt"><strong>Nom et qualité :</strong> ' + (bonForm.nomQualite||'') + '</div></div></div>'
+    + '</div><script>window.onload=function(){window.print();};<\/script></body></html>';
+
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+  const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
+
   return (
     <div style={{ minHeight: "100vh", background: "#f2ede2" }}>
       <header style={{ background: "#241f18", color: "#f2ede2", padding: "20px 20px 0" }}>
@@ -329,7 +407,7 @@ function App() {
           <h1 style={{ margin: "2px 0 14px", fontSize: 24, fontFamily: "Georgia, serif" }}>Suivi des ventes publicitaires</h1>
         </div>
         <nav style={{ display: "flex", gap: 4, maxWidth: 980, margin: "0 auto" }}>
-          {[{ id: "saisie", label: editId ? "Modifier" : "Saisir" }, { id: "suivi", label: "Suivi" }, { id: "bilan", label: "Bilan annuel" }].map((t) => (
+          {[{ id: "saisie", label: editId ? "Modifier" : "Saisir" }, { id: "suivi", label: "Suivi" }, { id: "bilan", label: "Bilan annuel" }, { id: "bon", label: "Bon de commande" }].map((t) => (
             <div key={t.id} className="tab" onClick={() => { setOnglet(t.id); if (t.id !== "saisie") resetForm(); }}
               style={{ padding: "10px 16px", fontSize: 14, fontWeight: 600, borderBottom: onglet === t.id ? "3px solid #c9a26a" : "3px solid transparent", color: onglet === t.id ? "#f2ede2" : "#a49b8a" }}>
               {t.label}
@@ -339,7 +417,7 @@ function App() {
       </header>
 
       <main style={{ maxWidth: 980, margin: "0 auto", padding: "20px 20px 60px" }}>
-        {onglet !== "saisie" && (
+        {onglet !== "saisie" && onglet !== "bon" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 12, marginBottom: 24 }}>
             <Kpi label={`CA ${kpiLabelEdition}`} value={euros(kpiCA)} />
             <Kpi label="À relancer (BAT)" value={kpiARelancer} accent={kpiARelancer ? "#a8412f" : null} />
@@ -602,6 +680,153 @@ function App() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+        )}
+
+        {onglet === "bon" && (
+          <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 12, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontFamily: "Georgia, serif" }}>Bon de commande</h2>
+              <button type="button" className="btn" onClick={resetBon} style={{ background: "none", color: "#8b8478", fontSize: 13 }}>Nouveau bon</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Champ label="Année du bon">
+                <select value={bonForm.anneeBon} onChange={(e) => majBon(f => ({ ...f, anneeBon: parseInt(e.target.value, 10) }))} style={inputStyle}>
+                  {[2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </Champ>
+              <Champ label="Date du bon">
+                <input type="date" value={bonForm.date} onChange={(e) => majBon(f => ({ ...f, date: e.target.value }))} style={inputStyle} />
+              </Champ>
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e2dac7" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#5c5548", marginBottom: 8 }}>INFORMATIONS CLIENT</div>
+              <Champ label="Raison sociale" required>
+                <input value={bonForm.raisonSociale} onChange={(e) => majBon(f => ({ ...f, raisonSociale: e.target.value }))} style={inputStyle} />
+              </Champ>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Champ label="Adresse">
+                  <input value={bonForm.adresse} onChange={(e) => majBon(f => ({ ...f, adresse: e.target.value }))} style={inputStyle} />
+                </Champ>
+                <Champ label="Code postal">
+                  <input value={bonForm.codePostal} onChange={(e) => majBon(f => ({ ...f, codePostal: e.target.value }))} style={inputStyle} />
+                </Champ>
+                <Champ label="Ville">
+                  <input value={bonForm.ville} onChange={(e) => majBon(f => ({ ...f, ville: e.target.value }))} style={inputStyle} />
+                </Champ>
+                <Champ label="Email">
+                  <input type="email" value={bonForm.email} onChange={(e) => majBon(f => ({ ...f, email: e.target.value }))} style={inputStyle} />
+                </Champ>
+                <Champ label="Téléphone">
+                  <input value={bonForm.tel} onChange={(e) => majBon(f => ({ ...f, tel: e.target.value }))} style={inputStyle} />
+                </Champ>
+                <Champ label="Mobile">
+                  <input value={bonForm.mobile} onChange={(e) => majBon(f => ({ ...f, mobile: e.target.value }))} style={inputStyle} />
+                </Champ>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e2dac7" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#5c5548", marginBottom: 8 }}>LIGNES DE COMMANDE</div>
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 30 }}></th>
+                      <th>Rubrique</th>
+                      <th>Format</th>
+                      <th>Tarif (€)</th>
+                      <th>Nb parutions</th>
+                      <th>Tarif remisé (€)</th>
+                      <th>Total HT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bonForm.lignes.map((l, i) => {
+                      const tot = totalBonLigne(l);
+                      return (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 700, textAlign: "center" }}>{i + 1}</td>
+                          <td><input value={l.rubrique} onChange={(e) => majBonLigne(i, "rubrique", e.target.value)} style={{ ...inputStyle, padding: "4px 6px" }} /></td>
+                          <td><input value={l.format} onChange={(e) => majBonLigne(i, "format", e.target.value)} style={{ ...inputStyle, padding: "4px 6px" }} /></td>
+                          <td><input type="number" value={l.tarif} onChange={(e) => majBonLigne(i, "tarif", e.target.value)} style={{ ...inputStyle, padding: "4px 6px", width: 90 }} /></td>
+                          <td><input type="number" value={l.nbParutions} onChange={(e) => majBonLigne(i, "nbParutions", e.target.value)} style={{ ...inputStyle, padding: "4px 6px", width: 70 }} /></td>
+                          <td><input type="number" value={l.tarifRemise} onChange={(e) => majBonLigne(i, "tarifRemise", e.target.value)} style={{ ...inputStyle, padding: "4px 6px", width: 90 }} /></td>
+                          <td style={{ fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{tot ? euros(tot) : ""}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ fontSize: 11, color: "#8b8478", marginTop: 4 }}>Format en mm : Page : 170 x 240 - 1/2 Page : 157 x 114 - 1/4 Page : 77 x 114</div>
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e2dac7" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#5c5548", marginBottom: 8 }}>CALENDRIER DE PARUTION {bonForm.anneeBon}</div>
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 30 }}></th>
+                      {MOIS_BON.map(m => <th key={m} style={{ fontSize: 10, padding: "4px 2px", textAlign: "center" }}>{m}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[0,1,2,3,4].map(i => (
+                      <tr key={i}>
+                        <td style={{ fontWeight: 700, textAlign: "center" }}>{i + 1}</td>
+                        {MOIS_BON.map((m, j) => (
+                          <td key={j} style={{ textAlign: "center", padding: 4 }}>
+                            <input type="checkbox" checked={(bonForm.calendrier[i] || [])[j] || false} onChange={() => majBonCal(i, j)} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ background: "#f7f3ea", padding: 14, borderRadius: 8, minWidth: 220 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 20, fontSize: 13, marginBottom: 4 }}>
+                  <span>Total HT :</span><strong>{euros(totalBonHT)}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 20, fontSize: 13, marginBottom: 4 }}>
+                  <span>TVA 20% :</span><span>{euros(totalBonHT * 0.2)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 20, fontSize: 16, fontWeight: 700, borderTop: "2px solid #2c2a24", paddingTop: 6 }}>
+                  <span>Total TTC :</span><span>{euros(totalBonHT * 1.2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e2dac7" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Champ label="Mode de paiement">
+                  <select value={bonForm.modePaiement} onChange={(e) => majBon(f => ({ ...f, modePaiement: e.target.value }))} style={inputStyle}>
+                    <option value="">—</option>
+                    <option value="cheque">Chèque</option>
+                    <option value="reception_facture">Réception de facture</option>
+                    <option value="virement">Virement</option>
+                    <option value="30_jours">30 jours</option>
+                  </select>
+                </Champ>
+                <Champ label="Nom et qualité du signataire">
+                  <input value={bonForm.nomQualite} onChange={(e) => majBon(f => ({ ...f, nomQualite: e.target.value }))} style={inputStyle} />
+                </Champ>
+              </div>
+              <Champ label="Observations">
+                <textarea value={bonForm.observations} onChange={(e) => majBon(f => ({ ...f, observations: e.target.value }))} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
+              </Champ>
+            </div>
+
+            <button type="button" className="btn" onClick={imprimerBon} style={{ marginTop: 18, background: "#b5792f", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14 }}>
+              Imprimer / Envoyer en PDF
+            </button>
           </div>
         )}
       </main>
