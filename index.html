@@ -173,6 +173,92 @@ function Champ({ label, required, children }) {
   );
 }
 
+function SignaturePad({ value, onChange }) {
+  const canvasRef = useRef(null);
+  const drawingRef = useRef(false);
+  const lastPosRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = rect.height * 2;
+    ctx.scale(2, 2);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#2c2a24";
+    if (value) {
+      const img = new Image();
+      img.onload = function() { ctx.drawImage(img, 0, 0, rect.width, rect.height); };
+      img.src = value;
+    }
+  }, []);
+
+  function getPos(e) {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    var clientX, clientY;
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
+  function startDraw(e) {
+    e.preventDefault();
+    drawingRef.current = true;
+    lastPosRef.current = getPos(e);
+  }
+
+  function draw(e) {
+    if (!drawingRef.current) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.beginPath();
+    ctx.moveTo(lastPosRef.current.x, lastPosRef.current.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    lastPosRef.current = pos;
+  }
+
+  function endDraw() {
+    if (!drawingRef.current) return;
+    drawingRef.current = false;
+    lastPosRef.current = null;
+    var dataUrl = canvasRef.current.toDataURL("image/png");
+    onChange(dataUrl);
+  }
+
+  function clearSig() {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    onChange("");
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 12, color: "#5c5548" }}>Signature du client</span>
+        <button type="button" className="btn" onClick={clearSig} style={{ background: "none", color: "#a8412f", fontSize: 11, padding: 0 }}>Effacer</button>
+      </div>
+      <canvas ref={canvasRef}
+        onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+        onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
+        style={{ width: "100%", height: 120, border: "1px solid #d9d0bc", borderRadius: 8, background: "#fdfbf6", cursor: "crosshair", touchAction: "none" }}
+      />
+    </div>
+  );
+}
+
 function Kpi({ label, value, accent }) {
   return (
     <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 10, padding: 14 }}>
@@ -203,7 +289,7 @@ function App() {
     email: "", tel: "", mobile: "",
     lignes: Array.from({ length: 5 }, () => ({ rubrique: "", format: "", tarif: "", nbParutions: "", tarifRemise: "" })),
     calendrier: Array.from({ length: 5 }, () => Array(11).fill(false)),
-    modePaiement: "", observations: "", nomQualite: "",
+    modePaiement: "", observations: "", nomQualite: "", signatureClient: "",
     anneeBon: new Date().getFullYear(),
   }));
   const [historiqueBC, setHistoriqueBC] = useState(() => chargerLocal("zemag-pub-historique-bc", []));
@@ -388,7 +474,7 @@ function App() {
       email: "", tel: "", mobile: "",
       lignes: Array.from({ length: 5 }, () => ({ rubrique: "", format: "", tarif: "", nbParutions: "", tarifRemise: "" })),
       calendrier: Array.from({ length: 5 }, () => Array(11).fill(false)),
-      modePaiement: "", observations: "", nomQualite: "",
+      modePaiement: "", observations: "", nomQualite: "", signatureClient: "",
       anneeBon: new Date().getFullYear(),
     }));
   }
@@ -413,6 +499,7 @@ function App() {
         modePaiement: bonForm.modePaiement || "",
         observations: bonForm.observations || "",
         nomQualite: bonForm.nomQualite || "",
+        signatureClient: bonForm.signatureClient || "",
       };
       var nh = [...(Array.isArray(historiqueBC) ? historiqueBC : []), archive];
       nh = JSON.parse(JSON.stringify(nh));
@@ -469,7 +556,7 @@ function App() {
     + '<div style="font-size:6pt;color:#666;margin-bottom:5px">Format en mm : Page : 170 x 240 - 1/2 Page : 157 x 114 - 1/4 Page : 77 x 114</div>'
     + '<div style="display:flex;gap:12px;margin-bottom:5px"><div style="flex:1"><div style="font-weight:700;font-size:8pt;margin-bottom:2px">CALENDRIER DE PARUTION : ' + bonForm.anneeBon + '</div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="border:1px solid #999;padding:1px;background:#f0e6d2;font-size:6pt;width:18px"></th>' + calMoisH + '</tr></thead><tbody>' + calRows + '</tbody></table></div>'
     + '<div style="width:150px;display:flex;flex-direction:column;justify-content:flex-end"><table style="border-collapse:collapse;margin-left:auto"><tr><td style="padding:2px 6px;font-size:8pt">Total HT</td><td style="padding:2px 6px;font-weight:700;text-align:right;font-size:8pt">' + fmt(totalHT) + '</td></tr><tr><td style="padding:2px 6px;font-size:8pt">TVA 20%</td><td style="padding:2px 6px;text-align:right;font-size:8pt">' + fmt(tva) + '</td></tr><tr style="border-top:2px solid #222"><td style="padding:3px 6px;font-weight:700;font-size:9pt">Total TTC</td><td style="padding:3px 6px;font-weight:700;text-align:right;font-size:10pt">' + fmt(ttc) + '</td></tr></table></div></div>'
-    + '<div style="display:flex;gap:12px"><div style="flex:1;font-size:8pt"><div style="margin-bottom:4px"><strong>Date :</strong> ' + dateFormatee + '</div><div style="margin-bottom:4px"><strong>MODE DE PAIEMENT :</strong> ' + (modePaiementLabels[bonForm.modePaiement]||'') + '</div><div><strong>Observations :</strong> ' + (bonForm.observations||'') + '</div></div><div style="flex:1;text-align:center;font-size:8pt"><div style="font-size:7pt;color:#666;margin-bottom:2px">Cachet commercial du client</div><div style="border:1px dashed #ccc;height:35px;margin-bottom:5px"></div><div style="font-size:7pt;color:#666;margin-bottom:2px">Signature du client</div><div style="border:1px dashed #ccc;height:25px;margin-bottom:4px"></div><div><strong>Nom et qualité :</strong> ' + (bonForm.nomQualite||'') + '</div></div></div>'
+    + '<div style="display:flex;gap:12px"><div style="flex:1;font-size:8pt"><div style="margin-bottom:4px"><strong>Date :</strong> ' + dateFormatee + '</div><div style="margin-bottom:4px"><strong>MODE DE PAIEMENT :</strong> ' + (modePaiementLabels[bonForm.modePaiement]||'') + '</div><div><strong>Observations :</strong> ' + (bonForm.observations||'') + '</div></div><div style="flex:1;text-align:center;font-size:8pt"><div style="font-size:7pt;color:#666;margin-bottom:2px">Cachet commercial du client</div><div style="border:1px dashed #ccc;height:35px;margin-bottom:5px"></div><div style="font-size:7pt;color:#666;margin-bottom:2px">Signature du client</div><div style="border:1px dashed #ccc;height:50px;margin-bottom:4px;display:flex;align-items:center;justify-content:center">' + (bonForm.signatureClient ? '<img src="' + bonForm.signatureClient + '" style="max-height:48px;max-width:100%" />' : '') + '</div><div><strong>Nom et qualité :</strong> ' + (bonForm.nomQualite||'') + '</div></div></div>'
     + '</div></body></html>';
 
     const iframe = document.createElement('iframe');
@@ -921,6 +1008,9 @@ function App() {
               <Champ label="Observations">
                 <textarea value={bonForm.observations} onChange={(e) => majBon(f => ({ ...f, observations: e.target.value }))} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
               </Champ>
+              <div style={{ marginTop: 12 }}>
+                <SignaturePad value={bonForm.signatureClient} onChange={(sig) => majBon(f => ({ ...f, signatureClient: sig }))} />
+              </div>
             </div>
 
             <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
