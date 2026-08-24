@@ -215,7 +215,13 @@ function App() {
   function majBilanExtra(fn) { setBilanExtra((b) => { const nb = fn(b); sauverLocal("zemag-pub-bilan", nb); docRef.set({ bilanExtra: nb }, { merge: true }).catch(() => {}); return nb; }); }
   function majSurfaces(fn) { setSurfaces((s) => { const ns = fn(s); sauverLocal("zemag-pub-surfaces", ns); docRef.set({ surfaces: ns }, { merge: true }).catch(() => {}); return ns; }); }
   function majPositions(fn) { setPositions((p) => { const np = fn(p); sauverLocal("zemag-pub-positions", np); docRef.set({ positions: np }, { merge: true }).catch(() => {}); return np; }); }
-  function majHistoriqueBC(fn) { setHistoriqueBC((h) => { const nh = fn(h); sauverLocal("zemag-pub-historique-bc", nh); docRef.set({ historiqueBC: nh }, { merge: true }).catch(() => {}); return nh; }); }
+  function majHistoriqueBC(fn) {
+    var h = Array.isArray(historiqueBC) ? historiqueBC : [];
+    var nh = JSON.parse(JSON.stringify(fn(h)));
+    setHistoriqueBC(nh);
+    sauverLocal("zemag-pub-historique-bc", nh);
+    try { docRef.set({ historiqueBC: nh }, { merge: true }).catch(function() {}); } catch(e) {}
+  }
 
   useEffect(() => {
     docRef.get().then((doc) => {
@@ -402,12 +408,11 @@ function App() {
         observations: bonForm.observations || "",
         nomQualite: bonForm.nomQualite || "",
       };
-      setHistoriqueBC(prev => {
-        const nh = [...(prev || []), archive];
-        sauverLocal("zemag-pub-historique-bc", nh);
-        docRef.set({ historiqueBC: nh }, { merge: true }).catch(() => {});
-        return nh;
-      });
+      var nh = [...(Array.isArray(historiqueBC) ? historiqueBC : []), archive];
+      nh = JSON.parse(JSON.stringify(nh));
+      setHistoriqueBC(nh);
+      sauverLocal("zemag-pub-historique-bc", nh);
+      try { docRef.set({ historiqueBC: nh }, { merge: true }).catch(function() {}); } catch(fbErr) {}
       setFiltreAnneeBC(archive.anneeBon);
       setOnglet("historique_bc");
     } catch (err) { alert("Erreur lors de l'archivage : " + err.message); }
