@@ -226,7 +226,8 @@ function App() {
   useEffect(() => {
     docRef.get().then((doc) => {
       if (!doc.exists) {
-        docRef.set({ ventes, bilanExtra, surfaces, positions, bonCommande: bonForm, historiqueBC }).catch(() => {});
+        var initBon = Object.assign({}, bonForm, { calendrier: JSON.stringify(bonForm.calendrier || []) });
+        docRef.set({ ventes, bilanExtra, surfaces, positions, bonCommande: initBon, historiqueBC }).catch(() => {});
       }
     }).catch(() => {});
 
@@ -237,7 +238,11 @@ function App() {
       if (d.bilanExtra !== undefined) { setBilanExtra(d.bilanExtra); sauverLocal("zemag-pub-bilan", d.bilanExtra); }
       if (d.surfaces !== undefined) { setSurfaces(d.surfaces); sauverLocal("zemag-pub-surfaces", d.surfaces); }
       if (d.positions !== undefined) { setPositions(d.positions); sauverLocal("zemag-pub-positions", d.positions); }
-      if (d.bonCommande !== undefined && !bonEditingRef.current) { setBonForm(d.bonCommande); sauverLocal("zemag-pub-bon", d.bonCommande); }
+      if (d.bonCommande !== undefined && !bonEditingRef.current) {
+        var bc = Object.assign({}, d.bonCommande);
+        if (typeof bc.calendrier === "string") { try { bc.calendrier = JSON.parse(bc.calendrier); } catch(e) { bc.calendrier = Array.from({ length: 5 }, () => Array(11).fill(false)); } }
+        setBonForm(bc); sauverLocal("zemag-pub-bon", bc);
+      }
       if (d.historiqueBC !== undefined) { const hbc = Array.isArray(d.historiqueBC) ? d.historiqueBC : []; setHistoriqueBC(hbc); sauverLocal("zemag-pub-historique-bc", hbc); }
     });
     return () => unsub();
@@ -359,7 +364,8 @@ function App() {
       sauverLocal("zemag-pub-bon", nf);
       if (bonTimerRef.current) clearTimeout(bonTimerRef.current);
       bonTimerRef.current = setTimeout(() => {
-        docRef.set({ bonCommande: nf }, { merge: true }).catch(() => {});
+        var nfSafe = Object.assign({}, nf, { calendrier: JSON.stringify(nf.calendrier || []) });
+        try { docRef.set({ bonCommande: nfSafe }, { merge: true }).catch(() => {}); } catch(e) {}
         setTimeout(() => { bonEditingRef.current = false; }, 1000);
       }, 1500);
       return nf;
@@ -403,7 +409,7 @@ function App() {
         tel: bonForm.tel || "",
         mobile: bonForm.mobile || "",
         lignes: (bonForm.lignes || []).map(l => ({ rubrique: l.rubrique || "", format: l.format || "", tarif: l.tarif || "", nbParutions: l.nbParutions || "", tarifRemise: l.tarifRemise || "" })),
-        calendrier: (bonForm.calendrier || []).map(r => (r || []).map(v => !!v)),
+        calendrier: JSON.stringify((bonForm.calendrier || []).map(r => (r || []).map(v => !!v))),
         modePaiement: bonForm.modePaiement || "",
         observations: bonForm.observations || "",
         nomQualite: bonForm.nomQualite || "",
@@ -420,6 +426,9 @@ function App() {
   function supprimerArchive(id) { majHistoriqueBC(h => h.filter(b => b.id !== id)); }
   function chargerArchive(archive) {
     const { id, dateArchive, ...data } = archive;
+    if (typeof data.calendrier === "string") {
+      try { data.calendrier = JSON.parse(data.calendrier); } catch(e) { data.calendrier = Array.from({ length: 5 }, () => Array(11).fill(false)); }
+    }
     majBon(() => data);
     setOnglet("bon");
   }
