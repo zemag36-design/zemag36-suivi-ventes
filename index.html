@@ -225,7 +225,7 @@ function App() {
       if (d.surfaces !== undefined) { setSurfaces(d.surfaces); sauverLocal("zemag-pub-surfaces", d.surfaces); }
       if (d.positions !== undefined) { setPositions(d.positions); sauverLocal("zemag-pub-positions", d.positions); }
       if (d.bonCommande !== undefined && !bonEditingRef.current) { setBonForm(d.bonCommande); sauverLocal("zemag-pub-bon", d.bonCommande); }
-      if (d.historiqueBC !== undefined) { setHistoriqueBC(d.historiqueBC); sauverLocal("zemag-pub-historique-bc", d.historiqueBC); }
+      if (d.historiqueBC !== undefined) { const hbc = Array.isArray(d.historiqueBC) ? d.historiqueBC : []; setHistoriqueBC(hbc); sauverLocal("zemag-pub-historique-bc", hbc); }
     });
     return () => unsub();
   }, []);
@@ -373,13 +373,37 @@ function App() {
       anneeBon: new Date().getFullYear(),
     }));
   }
-  function archiverBon() {
-    if (!bonForm.raisonSociale.trim()) return;
-    const archive = JSON.parse(JSON.stringify(bonForm));
-    archive.id = uid();
-    archive.dateArchive = new Date().toISOString();
-    majHistoriqueBC(h => [...h, archive]);
-    setTimeout(() => { resetBon(); setOnglet("historique_bc"); }, 300);
+  function archiverBon(e) {
+    if (e) e.preventDefault();
+    if (!bonForm.raisonSociale || !bonForm.raisonSociale.trim()) { alert("Veuillez renseigner la raison sociale avant d'archiver."); return; }
+    try {
+      const archive = {
+        id: uid(),
+        dateArchive: new Date().toISOString(),
+        anneeBon: bonForm.anneeBon || new Date().getFullYear(),
+        date: bonForm.date || "",
+        raisonSociale: bonForm.raisonSociale || "",
+        adresse: bonForm.adresse || "",
+        codePostal: bonForm.codePostal || "",
+        ville: bonForm.ville || "",
+        email: bonForm.email || "",
+        tel: bonForm.tel || "",
+        mobile: bonForm.mobile || "",
+        lignes: (bonForm.lignes || []).map(l => ({ rubrique: l.rubrique || "", format: l.format || "", tarif: l.tarif || "", nbParutions: l.nbParutions || "", tarifRemise: l.tarifRemise || "" })),
+        calendrier: (bonForm.calendrier || []).map(r => (r || []).map(v => !!v)),
+        modePaiement: bonForm.modePaiement || "",
+        observations: bonForm.observations || "",
+        nomQualite: bonForm.nomQualite || "",
+      };
+      setHistoriqueBC(prev => {
+        const nh = [...(prev || []), archive];
+        sauverLocal("zemag-pub-historique-bc", nh);
+        docRef.set({ historiqueBC: nh }, { merge: true }).catch(() => {});
+        return nh;
+      });
+      setFiltreAnneeBC(archive.anneeBon);
+      setOnglet("historique_bc");
+    } catch (err) { alert("Erreur lors de l'archivage : " + err.message); }
   }
   function supprimerArchive(id) { majHistoriqueBC(h => h.filter(b => b.id !== id)); }
   function chargerArchive(archive) {
@@ -871,34 +895,32 @@ function App() {
               <button type="button" className="btn" onClick={imprimerBon} style={{ background: "#b5792f", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14 }}>
                 Imprimer / Envoyer en PDF
               </button>
-              <button type="button" className="btn" onClick={archiverBon} style={{ background: "#3d6b4a", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14 }}>
+              <button type="button" className="btn" onClick={(e) => archiverBon(e)} style={{ background: "#3d6b4a", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14 }}>
                 Archiver ce bon
               </button>
             </div>
           </div>
         )}
 
-        {onglet === "historique_bc" && (
-          <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 12, padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <h2 style={{ margin: 0, fontSize: 17, fontFamily: "Georgia, serif" }}>Historique des bons de commande</h2>
-              <select value={filtreAnneeBC} onChange={(e) => setFiltreAnneeBC(parseInt(e.target.value))} style={{ ...inputStyle, width: "auto" }}>
-                {[...new Set(historiqueBC.map(b => b.anneeBon || new Date(b.dateArchive).getFullYear()))].sort((a, b) => b - a).map(a => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-                {historiqueBC.length === 0 && <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>}
-              </select>
-            </div>
-
-            {historiqueBC.filter(b => (b.anneeBon || new Date(b.dateArchive).getFullYear()) === filtreAnneeBC).length === 0 ? (
-              <div style={{ color: "#8b8478", fontSize: 14, padding: 20, textAlign: "center" }}>Aucun bon de commande archivé pour {filtreAnneeBC}</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {historiqueBC
-                  .filter(b => (b.anneeBon || new Date(b.dateArchive).getFullYear()) === filtreAnneeBC)
-                  .sort((a, b) => new Date(b.dateArchive) - new Date(a.dateArchive))
-                  .map(b => {
-                    const totalHT = (b.lignes || []).reduce((s, l) => s + (((parseFloat(l.tarifRemise) || parseFloat(l.tarif) || 0)) * (parseInt(l.nbParutions) || 0)), 0);
+        {onglet === "historique_bc" && (() => {
+          const liste = Array.isArray(historiqueBC) ? historiqueBC : [];
+          const annees = [...new Set(liste.map(b => b.anneeBon || new Date().getFullYear()))].sort((a, b) => b - a);
+          if (annees.length === 0) annees.push(new Date().getFullYear());
+          const listeFiltree = liste.filter(b => (b.anneeBon || new Date().getFullYear()) === filtreAnneeBC).sort((a, b) => String(b.dateArchive || "").localeCompare(String(a.dateArchive || "")));
+          return (
+            <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 12, padding: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h2 style={{ margin: 0, fontSize: 17, fontFamily: "Georgia, serif" }}>Historique des bons de commande</h2>
+                <select value={filtreAnneeBC} onChange={(e) => setFiltreAnneeBC(parseInt(e.target.value))} style={{ ...inputStyle, width: "auto" }}>
+                  {annees.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              {listeFiltree.length === 0 ? (
+                <div style={{ color: "#8b8478", fontSize: 14, padding: 20, textAlign: "center" }}>Aucun bon de commande archivé pour {filtreAnneeBC}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {listeFiltree.map(b => {
+                    const totalHT = (Array.isArray(b.lignes) ? b.lignes : []).reduce((s, l) => s + ((parseFloat(l.tarifRemise) || parseFloat(l.tarif) || 0) * (parseInt(l.nbParutions) || 0)), 0);
                     const dateArc = b.dateArchive ? new Date(b.dateArchive).toLocaleDateString("fr-FR") : "";
                     const dateBon = b.date ? new Date(b.date + "T00:00:00").toLocaleDateString("fr-FR") : "";
                     return (
@@ -910,7 +932,7 @@ function App() {
                             {totalHT > 0 && <span style={{ marginLeft: 8, color: "#3d6b4a", fontWeight: 600 }}>{euros(totalHT)} HT</span>}
                           </div>
                           <div style={{ fontSize: 11, color: "#a49b8a", marginTop: 2 }}>
-                            {(b.lignes || []).filter(l => l.rubrique).map(l => l.rubrique).join(", ")}
+                            {(Array.isArray(b.lignes) ? b.lignes : []).filter(l => l && l.rubrique).map(l => l.rubrique).join(", ")}
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -924,10 +946,11 @@ function App() {
                       </div>
                     );
                   })}
-              </div>
-            )}
-          </div>
-        )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </main>
     </div>
   );
