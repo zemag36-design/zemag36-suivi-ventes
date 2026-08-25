@@ -134,6 +134,7 @@ const STATUTS_PUBLIREPORTAGE = [
   { id: "texte_envoye_mise_en_page", label: "Texte envoyé pour la mise en page" },
   { id: "mise_en_page_modification", label: "Mise en page en modification" },
   { id: "mise_en_page_validee", label: "Texte envoyé à la relecture" },
+  { id: "publireportage_programme", label: "Publireportage programmé" },
 ];
 
 const MOIS_BON = ["Janv.", "Fév.", "Mars", "Avril", "Mai", "Juin", "Juil.", "Sept.", "Oct.", "Nov.", "Déc."];
@@ -542,7 +543,7 @@ function App() {
     }).join("");
 
     const modePaiementLabels = { cheque: "CHÈQUE", reception_facture: "RÉCEPTION DE FACTURE", virement: "VIREMENT", "30_jours": "30 JOURS" };
-    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}</style></head><body><div style="margin:0 auto">'
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}</style></head><body><div style="margin:0 auto">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
     + '<div style="display:flex;align-items:center;gap:12px"><img src="' + LOGO_ZEMAG + '" style="height:45px"/>'
     + '<div><div style="font-size:28pt;font-weight:700;color:#c9a26a;line-height:1">' + bonForm.anneeBon + '</div>'
@@ -557,20 +558,36 @@ function App() {
     + '<div style="display:flex;gap:12px;margin-bottom:5px"><div style="flex:1"><div style="font-weight:700;font-size:8pt;margin-bottom:2px">CALENDRIER DE PARUTION : ' + bonForm.anneeBon + '</div><table style="width:100%;border-collapse:collapse"><thead><tr><th style="border:1px solid #999;padding:1px;background:#f0e6d2;font-size:6pt;width:18px"></th>' + calMoisH + '</tr></thead><tbody>' + calRows + '</tbody></table></div>'
     + '<div style="width:150px;display:flex;flex-direction:column;justify-content:flex-end"><table style="border-collapse:collapse;margin-left:auto"><tr><td style="padding:2px 6px;font-size:8pt">Total HT</td><td style="padding:2px 6px;font-weight:700;text-align:right;font-size:8pt">' + fmt(totalHT) + '</td></tr><tr><td style="padding:2px 6px;font-size:8pt">TVA 20%</td><td style="padding:2px 6px;text-align:right;font-size:8pt">' + fmt(tva) + '</td></tr><tr style="border-top:2px solid #222"><td style="padding:3px 6px;font-weight:700;font-size:9pt">Total TTC</td><td style="padding:3px 6px;font-weight:700;text-align:right;font-size:10pt">' + fmt(ttc) + '</td></tr></table></div></div>'
     + '<div style="display:flex;gap:12px"><div style="flex:1;font-size:8pt"><div style="margin-bottom:4px"><strong>Date :</strong> ' + dateFormatee + '</div><div style="margin-bottom:4px"><strong>MODE DE PAIEMENT :</strong> ' + (modePaiementLabels[bonForm.modePaiement]||'') + '</div><div><strong>Observations :</strong> ' + (bonForm.observations||'') + '</div></div><div style="flex:1;text-align:center;font-size:8pt"><div style="font-size:7pt;color:#666;margin-bottom:2px">Cachet commercial du client</div><div style="border:1px dashed #ccc;height:35px;margin-bottom:5px"></div><div style="font-size:7pt;color:#666;margin-bottom:2px">Signature du client</div><div style="border:1px dashed #ccc;height:50px;margin-bottom:4px;display:flex;align-items:center;justify-content:center">' + (bonForm.signatureClient ? '<img src="' + bonForm.signatureClient + '" style="max-height:48px;max-width:100%" />' : '') + '</div><div><strong>Nom et qualité :</strong> ' + (bonForm.nomQualite||'') + '</div></div></div>'
-    + '</div></body></html>';
+    + '</div>'
+    + '<div class="page-cgv" style="padding-top:10mm">'
+    + '<div style="text-align:center;margin-bottom:10px"><img src="' + LOGO_ZEMAG + '" style="height:35px"/></div>'
+    + '<div style="text-align:center;font-weight:700;font-size:11pt;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Conditions Générales de Vente</div>'
+    + '<div style="column-count:2;column-gap:20px;font-size:7.5pt;line-height:1.5;text-align:justify">'
+    + '<p style="margin:0 0 6px"><strong>1. Objet</strong> — Les présentes conditions régissent les insertions publicitaires dans le magazine ZEmag36, édité par CB MediaCom SAS.</p>'
+    + '<p style="margin:0 0 6px"><strong>2. Commande</strong> — Toute commande signée par l\'annonceur ou son mandataire constitue un engagement ferme et définitif. La signature du bon de commande vaut acceptation des présentes conditions.</p>'
+    + '<p style="margin:0 0 6px"><strong>3. Tarifs</strong> — Les tarifs s\'entendent hors taxes. La TVA applicable est celle en vigueur au jour de la facturation (20 %).</p>'
+    + '<p style="margin:0 0 6px"><strong>4. Facturation et paiement</strong> — La facture est émise à la parution. Sauf accord particulier mentionné au recto, le paiement est dû à réception de facture. Tout retard de paiement entraîne de plein droit, sans mise en demeure préalable, des pénalités de retard au taux de trois fois le taux d\'intérêt légal en vigueur, ainsi qu\'une indemnité forfaitaire de recouvrement de 40 euros (art. L.441-10 et D.441-5 du Code de commerce).</p>'
+    + '<p style="margin:0 0 6px"><strong>5. Annulation</strong> — Toute annulation doit être notifiée par écrit. Passé le délai de 30 jours avant la date de bouclage du numéro concerné, l\'intégralité du montant de l\'insertion reste due.</p>'
+    + '<p style="margin:0 0 6px"><strong>6. Fourniture des éléments</strong> — L\'annonceur s\'engage à fournir ses éléments (textes, visuels, logos) dans les délais communiqués par l\'éditeur. À défaut, l\'éditeur se réserve le droit de publier une annonce de substitution ou de facturer l\'espace réservé.</p>'
+    + '<p style="margin:0 0 6px"><strong>7. Responsabilité</strong> — L\'annonceur garantit être titulaire des droits de propriété intellectuelle sur les éléments fournis et dégage l\'éditeur de toute responsabilité à cet égard. L\'éditeur ne saurait être tenu responsable des erreurs de reproduction dues à la qualité insuffisante des documents fournis.</p>'
+    + '<p style="margin:0 0 6px"><strong>8. Emplacement</strong> — Sauf emplacement préférentiel expressément réservé et facturé, l\'éditeur se réserve le choix de l\'emplacement de l\'annonce.</p>'
+    + '<p style="margin:0 0 6px"><strong>9. Réclamation</strong> — Toute réclamation relative à la parution doit être formulée par écrit dans un délai de 15 jours suivant la date de publication. Au-delà, aucune réclamation ne sera recevable.</p>'
+    + '<p style="margin:0 0 6px"><strong>10. Droit applicable et juridiction</strong> — Les présentes conditions sont soumises au droit français. En cas de litige, et après tentative de résolution amiable, les tribunaux de Châteauroux seront seuls compétents.</p>'
+    + '</div>'
+    + '<div style="margin-top:12px;text-align:center;font-size:7pt;color:#888">CB MediaCom SAS — SIRET : 807 882 170 00010 — 91 rue Roland Garros, 36000 Châteauroux</div>'
+    + '</div>'
+    + '</body></html>';
 
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:297mm;height:210mm;border:none';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentDocument || iframe.contentWindow.document;
-    doc.open();
-    doc.write(html);
-    doc.close();
+    const w = window.open('', '_blank');
+    if (!w) { alert("Veuillez autoriser les pop-ups pour imprimer."); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
     setTimeout(() => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-      setTimeout(() => { try { document.body.removeChild(iframe); } catch(e) {} }, 3000);
-    }, 500);
+      w.focus();
+      w.print();
+      setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
+    }, 1000);
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
