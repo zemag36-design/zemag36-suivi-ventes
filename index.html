@@ -62,28 +62,25 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 const provider = new firebase.auth.GoogleAuthProvider();
 
-auth.getRedirectResult().then(function(result) {
-  if (result && result.user) {
-    if (result.user.email === "zemag36@gmail.com") {
-      deverrouiller();
-    } else {
-      document.getElementById("login-err").textContent = "Ce compte n'est pas autorisé.";
-      auth.signOut();
-    }
-  }
-}).catch(function(e) {
-  document.getElementById("login-err").textContent = "Erreur de connexion. Réessayez.";
-});
-
 auth.onAuthStateChanged(function(user) {
   if (user && user.email === "zemag36@gmail.com") {
     deverrouiller();
   }
 });
 
-function connexionGoogle() {
-  document.getElementById("login-err").textContent = "";
-  auth.signInWithRedirect(provider);
+async function connexionGoogle() {
+  try {
+    document.getElementById("login-err").textContent = "";
+    const result = await auth.signInWithPopup(provider);
+    if (result.user.email !== "zemag36@gmail.com") {
+      document.getElementById("login-err").textContent = "Ce compte n'est pas autorisé.";
+      await auth.signOut();
+    }
+  } catch (e) {
+    if (e.code !== "auth/popup-closed-by-user") {
+      document.getElementById("login-err").textContent = "Erreur de connexion. Réessayez.";
+    }
+  }
 }
 
 window.onerror = function(msg, src, line, col, err) {
