@@ -263,9 +263,9 @@ function SignaturePad({ value, onChange }) {
   );
 }
 
-function Kpi({ label, value, accent }) {
+function Kpi({ label, value, accent, onClick }) {
   return (
-    <div style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 10, padding: 14 }}>
+    <div onClick={onClick} style={{ background: "#fff", border: "1px solid #e2dac7", borderRadius: 10, padding: 14, cursor: onClick ? "pointer" : "default" }}>
       <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#8b8478" }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4, color: accent || "#2c2a24" }}>{value}</div>
     </div>
@@ -370,6 +370,7 @@ function App() {
       liste = liste.filter((v) => v.client.toLowerCase().includes(q));
     }
     if (filtreBAT === "non_envoye") liste = liste.filter((v) => !v.statutBAT);
+    else if (filtreBAT === "a_relancer") liste = liste.filter((v) => v.statutBAT === "envoye" || v.statutBAT === "modification");
     else if (filtreBAT !== "tous") liste = liste.filter((v) => v.statutBAT === filtreBAT);
     return [...liste].sort((a, b) => {
       const ia = editions.findIndex((e) => editionKey(e) === editionKey(a.edition));
@@ -626,7 +627,7 @@ function App() {
         {onglet !== "saisie" && onglet !== "bon" && onglet !== "historique_bc" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 12, marginBottom: 24 }}>
             <Kpi label={`CA ${kpiLabelEdition}`} value={euros(kpiCA)} />
-            <Kpi label="À relancer (BAT)" value={kpiARelancer} accent={kpiARelancer ? "#a8412f" : null} />
+            <Kpi label="À relancer (BAT)" value={kpiARelancer} accent={kpiARelancer ? "#a8412f" : null} onClick={kpiARelancer ? () => { setFiltreBAT(filtreBAT === "a_relancer" ? "tous" : "a_relancer"); setOnglet("suivi"); } : null} />
             <Kpi label="Dû (non payé)" value={euros(kpiDu)} accent={kpiDu ? "#b5792f" : null} />
           </div>
         )}
