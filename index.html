@@ -283,8 +283,6 @@ function App() {
   const [editId, setEditId] = useState(null);
   const [filtreEdition, setFiltreEdition] = useState("tous");
   const [filtreAnnee, setFiltreAnnee] = useState(new Date().getFullYear());
-  const [nouveauSurface, setNouveauSurface] = useState("");
-  const [nouveauPosition, setNouveauPosition] = useState("");
   const [erreur, setErreur] = useState("");
   const [recherche, setRecherche] = useState("");
   const [filtreBAT, setFiltreBAT] = useState("tous");
@@ -447,8 +445,6 @@ function App() {
   function togglePaye(id) { majVentes((vs) => vs.map((v) => (v.id === id ? { ...v, paye: !v.paye } : v))); }
   function toggleTexte(id) { majVentes((vs) => vs.map((v) => (v.id === id ? { ...v, texteRecu: !v.texteRecu } : v))); }
   function updateBilanExtra(key, field, value) { majBilanExtra((b) => ({ ...b, [key]: { ...b[key], [field]: value } })); }
-  function ajouterSurface() { const s = nouveauSurface.trim(); if (s && !surfaces.includes(s)) majSurfaces((x) => [...x, s]); setNouveauSurface(""); }
-  function ajouterPosition() { const p = nouveauPosition.trim(); if (p && !positions.includes(p)) majPositions((x) => [...x, p]); setNouveauPosition(""); }
 
   const bonEditingRef = useRef(false);
   const bonTimerRef = useRef(null);
@@ -712,26 +708,6 @@ function App() {
             )}
 
             <Champ label="Commentaire"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Remarques, précisions sur la vente..." rows={3} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} /></Champ>
-
-            <details style={{ marginTop: 14 }}>
-              <summary style={{ cursor: "pointer", fontSize: 12, color: "#8b8478" }}>Gérer les listes surface / position</summary>
-              <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <div style={{ fontSize: 12, color: "#8b8478", marginBottom: 6 }}>Ajouter une surface</div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input value={nouveauSurface} onChange={(e) => setNouveauSurface(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                    <button type="button" className="btn" onClick={ajouterSurface} style={{ background: "#e2dac7", padding: "0 14px", borderRadius: 8 }}>Ajouter</button>
-                  </div>
-                </div>
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <div style={{ fontSize: 12, color: "#8b8478", marginBottom: 6 }}>Ajouter une position</div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input value={nouveauPosition} onChange={(e) => setNouveauPosition(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-                    <button type="button" className="btn" onClick={ajouterPosition} style={{ background: "#e2dac7", padding: "0 14px", borderRadius: 8 }}>Ajouter</button>
-                  </div>
-                </div>
-              </div>
-            </details>
 
             <button type="button" className="btn" onClick={soumettre} style={{ marginTop: 18, background: "#b5792f", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
               + {editId ? "Enregistrer les modifications" : "Ajouter la vente"}
