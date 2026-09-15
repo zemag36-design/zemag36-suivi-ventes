@@ -161,7 +161,7 @@ function sauverLocal(cle, valeur) {
 const emptyForm = {
   client: "", surface: SURFACES_DEFAUT[0], position: POSITIONS_DEFAUT[0], montantHT: "",
   texteRecu: false, paye: false, editionIdx: 0,
-  programmerPlusieurs: false, editionDepartIdx: 0, nbParutions: "",
+  programmerPlusieurs: false, editionDepartIdx: 0, nbParutions: "", frequenceParution: "1",
   dateEnvoiQuestionnaire: "", retourClient: "", dateEnvoiMaquette: "",
   statutBAT: "", dateStatutBAT: "", statutPublireportage: "", notes: "",
 };
@@ -359,8 +359,14 @@ function App() {
     if (!form.programmerPlusieurs) return [];
     const n = parseInt(form.nbParutions, 10);
     if (!n || n < 1) return [];
-    return editions.slice(form.editionDepartIdx, form.editionDepartIdx + n);
-  }, [form.programmerPlusieurs, form.editionDepartIdx, form.nbParutions, editions]);
+    const freq = parseInt(form.frequenceParution, 10) || 1;
+    var result = [];
+    for (var i = 0; i < n; i++) {
+      var idx = form.editionDepartIdx + i * freq;
+      if (idx < editions.length) result.push(editions[idx]);
+    }
+    return result;
+  }, [form.programmerPlusieurs, form.editionDepartIdx, form.nbParutions, form.frequenceParution, editions]);
 
   const venteAffichees = useMemo(() => {
     let liste = filtreEdition === "tous" ? ventes : (parEdition[filtreEdition] || []);
@@ -682,14 +688,23 @@ function App() {
                 {form.programmerPlusieurs && (
                   <div style={{ marginTop: 10 }}>
                     <div style={{ fontSize: 12, color: "#8b8478", marginBottom: 10 }}>Indique le mois de départ et le nombre de parutions : les mois suivants sont sélectionnés automatiquement.</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                       <Champ label="Mois de départ">
                         <select value={form.editionDepartIdx} onChange={(e) => setForm({ ...form, editionDepartIdx: parseInt(e.target.value, 10) })} style={inputStyle}>
                           {editions.map((e, i) => <option key={i} value={i}>{editionLabel(e)}</option>)}
                         </select>
                       </Champ>
+                      <Champ label="Fréquence">
+                        <select value={form.frequenceParution} onChange={(e) => setForm({ ...form, frequenceParution: e.target.value })} style={inputStyle}>
+                          <option value="1">Tous les mois</option>
+                          <option value="2">Tous les 2 mois</option>
+                          <option value="3">Tous les 3 mois</option>
+                          <option value="4">Tous les 4 mois</option>
+                          <option value="6">Tous les 6 mois</option>
+                        </select>
+                      </Champ>
                       <Champ label="Nombre de parutions">
-                        <input type="number" min="1" value={form.nbParutions} onChange={(e) => setForm({ ...form, nbParutions: e.target.value })} placeholder="ex. 11" style={inputStyle} />
+                        <input type="number" min="1" value={form.nbParutions} onChange={(e) => setForm({ ...form, nbParutions: e.target.value })} placeholder="ex. 6" style={inputStyle} />
                       </Champ>
                     </div>
                     {editionsSelectionnees.length > 0 && (
@@ -953,7 +968,12 @@ function App() {
             </div>
 
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e2dac7" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#5c5548", marginBottom: 8 }}>CALENDRIER DE PARUTION {bonForm.anneeBon}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#5c5548" }}>CALENDRIER DE PARUTION</span>
+                <select value={bonForm.anneeBon} onChange={(e) => majBon(f => ({ ...f, anneeBon: parseInt(e.target.value, 10) }))} style={{ ...inputStyle, width: "auto", padding: "2px 8px", fontSize: 13, fontWeight: 700 }}>
+                  {[2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
               <div style={{ overflowX: "auto" }}>
                 <table>
                   <thead>
