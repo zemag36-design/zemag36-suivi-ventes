@@ -372,7 +372,7 @@ function App() {
     let liste = filtreEdition === "tous" ? ventes : (parEdition[filtreEdition] || []);
     if (recherche.trim()) {
       const q = recherche.trim().toLowerCase();
-      liste = liste.filter((v) => v.client.toLowerCase().includes(q));
+      liste = liste.filter((v) => (v.client || "").toLowerCase().includes(q) || (v.surface || "").toLowerCase().includes(q) || (v.position || "").toLowerCase().includes(q) || (v.notes || "").toLowerCase().includes(q));
     }
     if (filtreBAT === "non_envoye") liste = liste.filter((v) => !v.statutBAT);
     else if (filtreBAT === "a_relancer") liste = liste.filter((v) => v.statutBAT === "envoye" || v.statutBAT === "modification");
@@ -733,7 +733,7 @@ function App() {
         {onglet === "suivi" && (
           <div>
             <div style={{ marginBottom: 14 }}>
-              <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher un client..." style={{ ...inputStyle, marginBottom: 10, fontSize: 15, padding: "10px 14px", background: "#fff", border: "1px solid #e2dac7", borderRadius: 10 }} />
+              <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher client, position, surface, notes..." style={{ ...inputStyle, marginBottom: 10, fontSize: 15, padding: "10px 14px", background: "#fff", border: "1px solid #e2dac7", borderRadius: 10 }} />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
               <label style={{ fontSize: 13, color: "#8b8478" }}>Filtrer :</label>
