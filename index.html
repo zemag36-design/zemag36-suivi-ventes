@@ -287,6 +287,7 @@ function App() {
   const [recherche, setRecherche] = useState("");
   const [filtreBAT, setFiltreBAT] = useState("tous");
   const [filtrePremium, setFiltrePremium] = useState(false);
+  const [filtreNonPaye, setFiltreNonPaye] = useState(false);
   const [bonForm, setBonForm] = useState(() => chargerLocal("zemag-pub-bon", {
     date: "", raisonSociale: "", adresse: "", codePostal: "", ville: "",
     email: "", tel: "", mobile: "",
@@ -378,13 +379,14 @@ function App() {
     else if (filtreBAT === "a_relancer") liste = liste.filter((v) => v.statutBAT === "envoye" || v.statutBAT === "modification");
     else if (filtreBAT !== "tous") liste = liste.filter((v) => v.statutBAT === filtreBAT);
     if (filtrePremium) liste = liste.filter((v) => v.position === "Première page" || v.position === "Dernière page");
+    if (filtreNonPaye) liste = liste.filter((v) => !v.paye);
     return [...liste].sort((a, b) => {
       const ia = editions.findIndex((e) => editionKey(e) === editionKey(a.edition));
       const ib = editions.findIndex((e) => editionKey(e) === editionKey(b.edition));
       if (ia !== ib) return ib - ia;
       return a.client.localeCompare(b.client);
     });
-  }, [ventes, parEdition, filtreEdition, recherche, filtreBAT, filtrePremium, editions]);
+  }, [ventes, parEdition, filtreEdition, recherche, filtreBAT, filtrePremium, filtreNonPaye, editions]);
 
   const caFiltre = useMemo(() => venteAffichees.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0), [venteAffichees]);
 
@@ -635,7 +637,7 @@ function App() {
             <Kpi label={`CA ${kpiLabelEdition}`} value={euros(kpiCA)} />
             <Kpi label="À relancer (BAT)" value={kpiARelancer} accent={kpiARelancer ? "#a8412f" : null} onClick={kpiARelancer ? () => { setFiltreBAT(filtreBAT === "a_relancer" ? "tous" : "a_relancer"); setOnglet("suivi"); } : null} />
             <Kpi label="Emplacement Premium" value={kpiPremium} accent={kpiPremium ? "#6a4fb5" : null} onClick={kpiPremium ? () => { setFiltrePremium(!filtrePremium); setOnglet("suivi"); } : null} />
-            <Kpi label="Dû (non payé)" value={euros(kpiDu)} accent={kpiDu ? "#b5792f" : null} />
+            <Kpi label="Dû (non payé)" value={euros(kpiDu)} accent={kpiDu ? "#b5792f" : null} onClick={kpiDu ? () => { setFiltreNonPaye(!filtreNonPaye); setOnglet("suivi"); } : null} />
           </div>
         )}
 
