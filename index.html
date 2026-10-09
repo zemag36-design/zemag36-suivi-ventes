@@ -649,7 +649,7 @@ function App() {
       </header>
 
       <main style={{ maxWidth: 980, margin: "0 auto", padding: "20px 20px 60px" }}>
-        {onglet !== "saisie" && onglet !== "bon" && onglet !== "historique_bc" && (
+        {onglet !== "saisie" && onglet !== "bon" && onglet !== "historique_bc" && onglet !== "bilan" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 12, marginBottom: 24 }}>
             <Kpi label={`CA ${kpiLabelEdition}`} value={euros(kpiCA)} />
             <Kpi label="À relancer (BAT)" value={kpiARelancer} accent={kpiARelancer ? "#a8412f" : null} onClick={kpiARelancer ? () => { setFiltreBAT(filtreBAT === "a_relancer" ? "tous" : "a_relancer"); setOnglet("suivi"); } : null} />
