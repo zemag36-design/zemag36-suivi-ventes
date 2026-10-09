@@ -140,6 +140,19 @@ const STATUTS_PUBLIREPORTAGE = [
   { id: "publireportage_programme", label: "Publireportage programmé" },
 ];
 
+const HISTORIQUE_CA = {
+  2015: { "Janvier": 4424, "Février": 4107, "Mars": 6387, "Avril": 6189, "Mai": 6284, "Juin": 7043, "Juillet/Août": 5249, "Septembre": 8635, "Octobre": 4789, "Novembre": 4493, "Décembre": 8114 },
+  2016: { "Janvier": 4829, "Février": 4205, "Mars": 10410, "Avril": 6420, "Mai": 7475, "Juin": 10100, "Juillet/Août": 7650, "Septembre": 9924, "Octobre": 6615, "Novembre": 5790, "Décembre": 9325 },
+  2017: { "Janvier": 6890, "Février": 7730, "Mars": 8670, "Avril": 8390, "Mai": 8888, "Juin": 9518, "Juillet/Août": 10033, "Septembre": 11053, "Octobre": 6043, "Novembre": 8308, "Décembre": 11233 },
+  2018: { "Janvier": 8613, "Février": 7183, "Mars": 10023, "Avril": 9413, "Mai": 8815, "Juin": 9520, "Juillet/Août": 8780, "Septembre": 10750, "Octobre": 6610, "Novembre": 9050, "Décembre": 11060 },
+  2019: { "Janvier": 6360, "Février": 6710, "Mars": 9055, "Avril": 9030, "Mai": 6120, "Juin": 8500, "Juillet/Août": 7970, "Septembre": 11655, "Octobre": 9040, "Novembre": 6480, "Décembre": 9430 },
+  2020: { "Janvier": 7260, "Février": 4976, "Mars": 9740, "Juin": 8860, "Juillet/Août": 8420, "Septembre": 10350, "Octobre": 7280 },
+  2021: { "Janvier": 3835, "Février": 4176, "Mars": 10420, "Avril": 10830, "Mai": 4850, "Juin": 7420, "Juillet/Août": 8670, "Septembre": 11610, "Octobre": 10460, "Novembre": 8721, "Décembre": 11340 },
+  2022: { "Janvier": 6550, "Février": 5726, "Mars": 11300, "Avril": 5860, "Mai": 7130, "Juin": 8300, "Juillet/Août": 9000, "Septembre": 6870, "Octobre": 12050, "Novembre": 9220, "Décembre": 10121 },
+  2023: { "Janvier": 7485, "Février": 5541, "Mars": 12470, "Avril": 6610, "Mai": 8765, "Juin": 9385, "Juillet/Août": 9640, "Septembre": 9960, "Octobre": 10270, "Novembre": 7408, "Décembre": 9891 },
+  2024: { "Janvier": 6375, "Février": 5645, "Mars": 15195, "Avril": 5015, "Mai": 6600, "Juin": 5375, "Juillet/Août": 8635, "Septembre": 8638, "Octobre": 9100, "Novembre": 9050, "Décembre": 9690 },
+  2025: { "Janvier": 6125, "Février": 3905, "Mars": 12770, "Avril": 6660, "Mai": 5810, "Juin": 7480, "Juillet/Août": 6130, "Septembre": 8140, "Octobre": 7570, "Novembre": 7090, "Décembre": 8180 },
+};
 const MOIS_BON = ["Janv.", "Fév.", "Mars", "Avril", "Mai", "Juin", "Juil.", "Sept.", "Oct.", "Nov.", "Déc."];
 const LOGO_ZEMAG = "data:image/png;base64,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";
 
@@ -353,7 +366,11 @@ function App() {
   const editionCourante = editions.find((e) => e.mois === moisLabelCourant && e.annee === anneeCourante) || editions[0];
   const venteMoisCourant = parEdition[editionKey(editionCourante)] || [];
 
-  const anneesDisponibles = useMemo(() => [...new Set(editions.map((e) => e.annee))], [editions]);
+  const anneesDisponibles = useMemo(() => {
+    const edAnnees = [...new Set(editions.map((e) => e.annee))];
+    const histAnnees = Object.keys(HISTORIQUE_CA).map(Number);
+    return [...new Set([...histAnnees, ...edAnnees])].sort((a, b) => b - a);
+  }, [editions]);
   const ventesAnnee = useMemo(() => ventes.filter((v) => v.edition && v.edition.annee === filtreAnnee), [ventes, filtreAnnee]);
 
   const editionsSelectionnees = useMemo(() => {
@@ -845,46 +862,72 @@ function App() {
               <select value={filtreAnnee} onChange={(e) => setFiltreAnnee(parseInt(e.target.value, 10))} style={{ ...inputStyle, width: "auto" }}>
                 {anneesDisponibles.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
+              {HISTORIQUE_CA[filtreAnnee] && <span style={{ fontSize: 11, color: "#8b8478", fontStyle: "italic" }}>Données historiques</span>}
             </div>
-            <table>
-              <thead>
-                <tr><th>N°</th><th>Mois</th><th>Année</th><th>CA HT</th><th>Encaissé</th><th>Dû</th><th>Imprimerie</th><th>Infographie</th><th>Nbre pages</th></tr>
-              </thead>
-              <tbody>
-                {editions.filter((e) => e.annee === filtreAnnee).map((e) => {
-                  const k = editionKey(e);
-                  const liste = parEdition[k] || [];
-                  const caHT = liste.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0);
-                  const encaisse = liste.filter((v) => v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0);
-                  const du = caHT - encaisse;
-                  const extra = bilanExtra[k] || {};
-                  return (
-                    <tr key={k}>
-                      <td>{e.numero}</td>
-                      <td>{e.mois}</td>
-                      <td>{e.annee}</td>
-                      <td>{euros(caHT)}</td>
-                      <td>{euros(encaisse)}</td>
-                      <td style={{ color: du > 0 ? "#a8412f" : "inherit" }}>{euros(du)}</td>
-                      <td><input type="number" value={extra.imprimerie || ""} onChange={(ev) => updateBilanExtra(k, "imprimerie", ev.target.value)} style={{ ...inputStyle, width: 90, padding: "4px 6px" }} placeholder="€" /></td>
-                      <td><input type="number" value={extra.infographie || ""} onChange={(ev) => updateBilanExtra(k, "infographie", ev.target.value)} style={{ ...inputStyle, width: 90, padding: "4px 6px" }} placeholder="€" /></td>
-                      <td><input type="number" value={extra.nbrePages || ""} onChange={(ev) => updateBilanExtra(k, "nbrePages", ev.target.value)} style={{ ...inputStyle, width: 70, padding: "4px 6px" }} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr style={{ fontWeight: 700 }}>
-                  <td colSpan={3}>TOTAL {filtreAnnee}</td>
-                  <td>{euros(ventesAnnee.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0))}</td>
-                  <td>{euros(ventesAnnee.filter((v) => v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0))}</td>
-                  <td>{euros(ventesAnnee.filter((v) => !v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0))}</td>
-                  <td>{euros(editions.filter((e) => e.annee === filtreAnnee).reduce((s, e) => s + (parseFloat((bilanExtra[editionKey(e)] || {}).imprimerie) || 0), 0))}</td>
-                  <td>{euros(editions.filter((e) => e.annee === filtreAnnee).reduce((s, e) => s + (parseFloat((bilanExtra[editionKey(e)] || {}).infographie) || 0), 0))}</td>
-                  <td>{editions.filter((e) => e.annee === filtreAnnee).reduce((s, e) => s + (parseFloat((bilanExtra[editionKey(e)] || {}).nbrePages) || 0), 0)}</td>
-                </tr>
-              </tfoot>
-            </table>
+            {HISTORIQUE_CA[filtreAnnee] && !editions.some((e) => e.annee === filtreAnnee) ? (
+              <table>
+                <thead>
+                  <tr><th>Mois</th><th>CA HT</th></tr>
+                </thead>
+                <tbody>
+                  {["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet/Août", "Septembre", "Octobre", "Novembre", "Décembre"].map((m) => {
+                    const ca = HISTORIQUE_CA[filtreAnnee][m];
+                    return (
+                      <tr key={m} style={{ color: ca === undefined ? "#ccc" : "inherit" }}>
+                        <td>{m}</td>
+                        <td>{ca !== undefined ? euros(ca) : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ fontWeight: 700 }}>
+                    <td>TOTAL {filtreAnnee}</td>
+                    <td>{euros(Object.values(HISTORIQUE_CA[filtreAnnee]).reduce((s, v) => s + v, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>N°</th><th>Mois</th><th>Année</th><th>CA HT</th><th>Encaissé</th><th>Dû</th><th>Imprimerie</th><th>Infographie</th><th>Nbre pages</th></tr>
+                </thead>
+                <tbody>
+                  {editions.filter((e) => e.annee === filtreAnnee).map((e) => {
+                    const k = editionKey(e);
+                    const liste = parEdition[k] || [];
+                    const caHT = liste.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0);
+                    const encaisse = liste.filter((v) => v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0);
+                    const du = caHT - encaisse;
+                    const extra = bilanExtra[k] || {};
+                    return (
+                      <tr key={k}>
+                        <td>{e.numero}</td>
+                        <td>{e.mois}</td>
+                        <td>{e.annee}</td>
+                        <td>{euros(caHT)}</td>
+                        <td>{euros(encaisse)}</td>
+                        <td style={{ color: du > 0 ? "#a8412f" : "inherit" }}>{euros(du)}</td>
+                        <td><input type="number" value={extra.imprimerie || ""} onChange={(ev) => updateBilanExtra(k, "imprimerie", ev.target.value)} style={{ ...inputStyle, width: 90, padding: "4px 6px" }} placeholder="€" /></td>
+                        <td><input type="number" value={extra.infographie || ""} onChange={(ev) => updateBilanExtra(k, "infographie", ev.target.value)} style={{ ...inputStyle, width: 90, padding: "4px 6px" }} placeholder="€" /></td>
+                        <td><input type="number" value={extra.nbrePages || ""} onChange={(ev) => updateBilanExtra(k, "nbrePages", ev.target.value)} style={{ ...inputStyle, width: 70, padding: "4px 6px" }} /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ fontWeight: 700 }}>
+                    <td colSpan={3}>TOTAL {filtreAnnee}</td>
+                    <td>{euros(ventesAnnee.reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0))}</td>
+                    <td>{euros(ventesAnnee.filter((v) => v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0))}</td>
+                    <td>{euros(ventesAnnee.filter((v) => !v.paye).reduce((s, v) => s + (parseFloat(v.montantHT) || 0), 0))}</td>
+                    <td>{euros(editions.filter((e) => e.annee === filtreAnnee).reduce((s, e) => s + (parseFloat((bilanExtra[editionKey(e)] || {}).imprimerie) || 0), 0))}</td>
+                    <td>{euros(editions.filter((e) => e.annee === filtreAnnee).reduce((s, e) => s + (parseFloat((bilanExtra[editionKey(e)] || {}).infographie) || 0), 0))}</td>
+                    <td>{editions.filter((e) => e.annee === filtreAnnee).reduce((s, e) => s + (parseFloat((bilanExtra[editionKey(e)] || {}).nbrePages) || 0), 0)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
           </div>
         )}
 
