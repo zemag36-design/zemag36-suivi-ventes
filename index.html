@@ -548,8 +548,10 @@ function App() {
 
   const bonEditingRef = useRef(false);
   const bonTimerRef = useRef(null);
+  const bonArchivedRef = useRef(false);
   function majBon(fn) {
     bonEditingRef.current = true;
+    bonArchivedRef.current = false;
     setBonForm(f => {
       const nf = fn(f);
       sauverLocal("zemag-pub-bon", nf);
@@ -575,7 +577,7 @@ function App() {
   }
   function resetBon() {
     majBon(() => ({
-      date: "", raisonSociale: "", adresse: "", codePostal: "", ville: "",
+      date: "", raisonSociale: "", siret: "", adresse: "", codePostal: "", ville: "",
       email: "", tel: "", mobile: "",
       lignes: Array.from({ length: 5 }, () => ({ rubrique: "", format: "", tarif: "", nbParutions: "", tarifRemise: "" })),
       calendrier: Array.from({ length: 5 }, () => Array(11).fill(false)),
@@ -583,9 +585,9 @@ function App() {
       anneeBon: new Date().getFullYear(),
     }));
   }
-  function archiverBon(e) {
-    if (e) e.preventDefault();
-    if (!bonForm.raisonSociale || !bonForm.raisonSociale.trim()) { alert("Veuillez renseigner la raison sociale avant d'archiver."); return; }
+  function archiverBon() {
+    if (!bonForm.raisonSociale || !bonForm.raisonSociale.trim()) return false;
+    if (bonArchivedRef.current) return true;
     try {
       const archive = {
         id: uid(),
@@ -612,9 +614,9 @@ function App() {
       setHistoriqueBC(nh);
       sauverLocal("zemag-pub-historique-bc", nh);
       try { docRef.set({ historiqueBC: nh }, { merge: true }).catch(function() {}); } catch(fbErr) {}
-      setFiltreAnneeBC(archive.anneeBon);
-      setOnglet("historique_bc");
-    } catch (err) { alert("Erreur lors de l'archivage : " + err.message); }
+      bonArchivedRef.current = true;
+      return true;
+    } catch (err) { alert("Erreur lors de l'archivage : " + err.message); return false; }
   }
   function supprimerArchive(id) { majHistoriqueBC(h => h.filter(b => b.id !== id)); }
   function chargerArchive(archive) {
@@ -683,6 +685,8 @@ function App() {
     + '</div>'
     + '</body></html>';
 
+    archiverBon();
+
     const w = window.open('', '_blank');
     if (!w) { alert("Veuillez autoriser les pop-ups pour imprimer."); return; }
     w.document.open();
@@ -693,6 +697,8 @@ function App() {
       w.print();
       setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
     }, 1000);
+
+    resetBon();
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
@@ -1164,9 +1170,6 @@ function App() {
             <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
               <button type="button" className="btn" onClick={imprimerBon} style={{ background: "#b5792f", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14 }}>
                 Imprimer / Envoyer en PDF
-              </button>
-              <button type="button" className="btn" onClick={(e) => archiverBon(e)} style={{ background: "#3d6b4a", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14 }}>
-                Archiver ce bon
               </button>
             </div>
           </div>
