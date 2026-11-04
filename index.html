@@ -365,7 +365,12 @@ function App() {
   const [editions] = useState(EDITIONS_DEFAUT);
   const [bilanExtra, setBilanExtra] = useState(() => chargerLocal("zemag-pub-bilan", {}));
   const [surfaces, setSurfaces] = useState(() => chargerLocal("zemag-pub-surfaces", SURFACES_DEFAUT));
-  const [positions, setPositions] = useState(() => chargerLocal("zemag-pub-positions", POSITIONS_DEFAUT));
+  const [positions, setPositions] = useState(() => {
+    const saved = chargerLocal("zemag-pub-positions", POSITIONS_DEFAUT);
+    const merged = [...saved, ...POSITIONS_DEFAUT.filter(p => !saved.includes(p))];
+    if (merged.length !== saved.length) sauverLocal("zemag-pub-positions", merged);
+    return merged;
+  });
   const [onglet, setOnglet] = useState("saisie");
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
