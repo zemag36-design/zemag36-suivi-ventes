@@ -697,41 +697,42 @@ function App() {
     + '<div style="margin-top:12px;text-align:center;font-size:7pt;color:#888">CB MediaCom SAS — SIRET : 807 882 170 00010 — 91 rue Roland Garros, 36000 Châteauroux</div>'
     + '</div>';
 
-    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>' + printStyles + '</style></head><body>' + bodyContent + '</body></html>';
+    var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
-    var w = null;
-    try { w = window.open('', '_blank'); } catch(e) {}
-
-    if (w) {
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
-      archiverBon();
-      setTimeout(() => {
-        w.focus();
-        w.print();
-        resetBon();
-        setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
-      }, 1000);
-    } else {
-      var printStyle = document.createElement('style');
-      printStyle.id = 'zemag-print-style';
-      printStyle.textContent = printStyles + ' @media print { body > *:not(#zemag-print-overlay) { display: none !important; } #zemag-print-overlay { display: block !important; } } #zemag-print-overlay { font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222; }';
-      document.head.appendChild(printStyle);
-      var overlay = document.createElement('div');
-      overlay.id = 'zemag-print-overlay';
-      overlay.innerHTML = bodyContent;
-      document.body.appendChild(overlay);
-      archiverBon();
-      setTimeout(() => {
-        window.print();
-        resetBon();
+    if (!isMobile) {
+      const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>' + printStyles + '</style></head><body>' + bodyContent + '</body></html>';
+      var w = null;
+      try { w = window.open('', '_blank'); } catch(e) {}
+      if (w) {
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+        archiverBon();
         setTimeout(() => {
-          try { document.body.removeChild(overlay); } catch(e) {}
-          try { document.head.removeChild(printStyle); } catch(e) {}
-        }, 2000);
-      }, 500);
+          w.focus();
+          w.print();
+          resetBon();
+          setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
+        }, 1000);
+        return;
+      }
     }
+
+    var printStyle = document.createElement('style');
+    printStyle.id = 'zemag-print-style';
+    printStyle.textContent = printStyles + ' @media print { body > *:not(#zemag-print-overlay) { display: none !important; } #zemag-print-overlay { display: block !important; position: static !important; } } #zemag-print-overlay { font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222; }';
+    document.head.appendChild(printStyle);
+    var overlay = document.createElement('div');
+    overlay.id = 'zemag-print-overlay';
+    overlay.innerHTML = bodyContent;
+    document.body.appendChild(overlay);
+    archiverBon();
+    window.print();
+    resetBon();
+    setTimeout(() => {
+      try { document.body.removeChild(overlay); } catch(e) {}
+      try { document.head.removeChild(printStyle); } catch(e) {}
+    }, 2000);
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
