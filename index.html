@@ -662,7 +662,8 @@ function App() {
     }).join("");
 
     const modePaiementLabels = { cheque: "CHÈQUE", reception_facture: "RÉCEPTION DE FACTURE", virement: "VIREMENT", "30_jours": "30 JOURS" };
-    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}</style></head><body><div style="margin:0 auto">'
+    const printStyles = '@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}';
+    const bodyContent = '<div style="margin:0 auto">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
     + '<div style="display:flex;align-items:center;gap:12px"><img src="' + LOGO_ZEMAG + '" style="height:45px"/>'
     + '<div><div style="font-size:28pt;font-weight:700;color:#c9a26a;line-height:1">' + bonForm.anneeBon + '</div>'
@@ -694,8 +695,9 @@ function App() {
     + '<p style="margin:0 0 6px"><strong>10. Droit applicable et juridiction</strong> — Les présentes conditions sont soumises au droit français. En cas de litige, et après tentative de résolution amiable, les tribunaux de Châteauroux seront seuls compétents.</p>'
     + '</div>'
     + '<div style="margin-top:12px;text-align:center;font-size:7pt;color:#888">CB MediaCom SAS — SIRET : 807 882 170 00010 — 91 rue Roland Garros, 36000 Châteauroux</div>'
-    + '</div>'
-    + '</body></html>';
+    + '</div>';
+
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>' + printStyles + '</style></head><body>' + bodyContent + '</body></html>';
 
     var w = null;
     try { w = window.open('', '_blank'); } catch(e) {}
@@ -712,18 +714,23 @@ function App() {
         setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
       }, 1000);
     } else {
-      var iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;border:none';
-      document.body.appendChild(iframe);
-      iframe.contentDocument.open();
-      iframe.contentDocument.write(html);
-      iframe.contentDocument.close();
+      var printStyle = document.createElement('style');
+      printStyle.id = 'zemag-print-style';
+      printStyle.textContent = printStyles + ' @media print { body > *:not(#zemag-print-overlay) { display: none !important; } #zemag-print-overlay { display: block !important; } } #zemag-print-overlay { font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222; }';
+      document.head.appendChild(printStyle);
+      var overlay = document.createElement('div');
+      overlay.id = 'zemag-print-overlay';
+      overlay.innerHTML = bodyContent;
+      document.body.appendChild(overlay);
       archiverBon();
       setTimeout(() => {
-        try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { window.print(); }
+        window.print();
         resetBon();
-        setTimeout(() => { try { document.body.removeChild(iframe); } catch(e) {} }, 5000);
-      }, 1000);
+        setTimeout(() => {
+          try { document.body.removeChild(overlay); } catch(e) {}
+          try { document.head.removeChild(printStyle); } catch(e) {}
+        }, 2000);
+      }, 500);
     }
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
