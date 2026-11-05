@@ -697,20 +697,20 @@ function App() {
     + '</div>'
     + '</body></html>';
 
-    archiverBon();
-
     const w = window.open('', '_blank');
     if (!w) { alert("Veuillez autoriser les pop-ups pour imprimer."); return; }
     w.document.open();
     w.document.write(html);
     w.document.close();
+
+    archiverBon();
+
     setTimeout(() => {
       w.focus();
       w.print();
+      resetBon();
       setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
     }, 1000);
-
-    resetBon();
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
