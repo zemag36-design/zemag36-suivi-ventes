@@ -287,7 +287,7 @@ function SignaturePad({ value, onChange }) {
       img.onload = function() { ctx.drawImage(img, 0, 0, rect.width, rect.height); };
       img.src = value;
     }
-  }, []);
+  }, [value]);
 
   function getPos(e) {
     const canvas = canvasRef.current;
@@ -697,20 +697,34 @@ function App() {
     + '</div>'
     + '</body></html>';
 
-    const w = window.open('', '_blank');
-    if (!w) { alert("Veuillez autoriser les pop-ups pour imprimer."); return; }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
+    var w = null;
+    try { w = window.open('', '_blank'); } catch(e) {}
 
-    archiverBon();
-
-    setTimeout(() => {
-      w.focus();
-      w.print();
-      resetBon();
-      setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
-    }, 1000);
+    if (w) {
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      archiverBon();
+      setTimeout(() => {
+        w.focus();
+        w.print();
+        resetBon();
+        setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
+      }, 1000);
+    } else {
+      var iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;border:none';
+      document.body.appendChild(iframe);
+      iframe.contentDocument.open();
+      iframe.contentDocument.write(html);
+      iframe.contentDocument.close();
+      archiverBon();
+      setTimeout(() => {
+        try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { window.print(); }
+        resetBon();
+        setTimeout(() => { try { document.body.removeChild(iframe); } catch(e) {} }, 5000);
+      }, 1000);
+    }
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
