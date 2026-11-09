@@ -742,17 +742,33 @@ function App() {
       var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
       if (isStandalone) {
-        var reader = new FileReader();
-        reader.onload = function() {
-          var a = document.createElement('a');
-          a.href = reader.result;
-          a.target = '_blank';
-          a.style.display = 'none';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+        var file = new File([pdfBlob], filename, { type: 'application/pdf' });
+        var canShare = navigator.canShare && navigator.canShare({ files: [file] });
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
+        var btnShare = document.createElement('button');
+        btnShare.textContent = canShare ? 'Envoyer / Partager le PDF' : 'Télécharger le PDF';
+        btnShare.style.cssText = 'padding:18px 36px;font-size:18px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:12px;cursor:pointer;';
+        var btnClose = document.createElement('button');
+        btnClose.textContent = 'Fermer';
+        btnClose.style.cssText = 'padding:12px 30px;font-size:16px;background:#666;color:#fff;border:none;border-radius:10px;cursor:pointer;';
+        overlay.appendChild(btnShare);
+        overlay.appendChild(btnClose);
+        document.body.appendChild(overlay);
+        btnClose.onclick = function() { document.body.removeChild(overlay); };
+        btnShare.onclick = function() {
+          if (canShare) {
+            navigator.share({ files: [file], title: 'Bon de commande' }).then(function() {
+              document.body.removeChild(overlay);
+            }).catch(function() {});
+          } else {
+            var url = URL.createObjectURL(pdfBlob);
+            var a = document.createElement('a');
+            a.href = url; a.download = filename; a.target = '_blank';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(function() { URL.revokeObjectURL(url); document.body.removeChild(overlay); }, 3000);
+          }
         };
-        reader.readAsDataURL(pdfBlob);
       } else {
         var url = URL.createObjectURL(pdfBlob);
         var a = document.createElement('a');
