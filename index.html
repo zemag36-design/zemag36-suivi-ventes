@@ -560,10 +560,8 @@ function App() {
 
   const bonEditingRef = useRef(false);
   const bonTimerRef = useRef(null);
-  const bonArchivedRef = useRef(false);
   function majBon(fn) {
     bonEditingRef.current = true;
-    bonArchivedRef.current = false;
     setBonForm(f => {
       const nf = fn(f);
       sauverLocal("zemag-pub-bon", nf);
@@ -597,9 +595,9 @@ function App() {
       anneeBon: new Date().getFullYear(),
     }));
   }
-  function archiverBon() {
-    if (!bonForm.raisonSociale || !bonForm.raisonSociale.trim()) return false;
-    if (bonArchivedRef.current) return true;
+  function archiverBon(e) {
+    if (e) e.preventDefault();
+    if (!bonForm.raisonSociale || !bonForm.raisonSociale.trim()) { alert("Veuillez renseigner la raison sociale avant d'archiver."); return; }
     try {
       const archive = {
         id: uid(),
@@ -626,9 +624,9 @@ function App() {
       setHistoriqueBC(nh);
       sauverLocal("zemag-pub-historique-bc", nh);
       try { docRef.set({ historiqueBC: nh }, { merge: true }).catch(function() {}); } catch(fbErr) {}
-      bonArchivedRef.current = true;
-      return true;
-    } catch (err) { alert("Erreur lors de l'archivage : " + err.message); return false; }
+      setFiltreAnneeBC(archive.anneeBon);
+      setOnglet("historique_bc");
+    } catch (err) { alert("Erreur lors de l'archivage : " + err.message); }
   }
   function supprimerArchive(id) { majHistoriqueBC(h => h.filter(b => b.id !== id)); }
   function chargerArchive(archive) {
@@ -662,8 +660,7 @@ function App() {
     }).join("");
 
     const modePaiementLabels = { cheque: "CHÈQUE", reception_facture: "RÉCEPTION DE FACTURE", virement: "VIREMENT", "30_jours": "30 JOURS" };
-    const printStyles = '@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}';
-    const bodyContent = '<div style="margin:0 auto">'
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}</style></head><body><div style="margin:0 auto">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
     + '<div style="display:flex;align-items:center;gap:12px"><img src="' + LOGO_ZEMAG + '" style="height:45px"/>'
     + '<div><div style="font-size:28pt;font-weight:700;color:#c9a26a;line-height:1">' + bonForm.anneeBon + '</div>'
@@ -695,44 +692,19 @@ function App() {
     + '<p style="margin:0 0 6px"><strong>10. Droit applicable et juridiction</strong> — Les présentes conditions sont soumises au droit français. En cas de litige, et après tentative de résolution amiable, les tribunaux de Châteauroux seront seuls compétents.</p>'
     + '</div>'
     + '<div style="margin-top:12px;text-align:center;font-size:7pt;color:#888">CB MediaCom SAS — SIRET : 807 882 170 00010 — 91 rue Roland Garros, 36000 Châteauroux</div>'
-    + '</div>';
+    + '</div>'
+    + '</body></html>';
 
-    var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-
-    if (!isMobile) {
-      const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>' + printStyles + '</style></head><body>' + bodyContent + '</body></html>';
-      var w = null;
-      try { w = window.open('', '_blank'); } catch(e) {}
-      if (w) {
-        w.document.open();
-        w.document.write(html);
-        w.document.close();
-        archiverBon();
-        setTimeout(() => {
-          w.focus();
-          w.print();
-          resetBon();
-          setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
-        }, 1000);
-        return;
-      }
-    }
-
-    var printStyle = document.createElement('style');
-    printStyle.id = 'zemag-print-style';
-    printStyle.textContent = printStyles + ' @media print { body > *:not(#zemag-print-overlay) { display: none !important; } #zemag-print-overlay { display: block !important; position: static !important; } } #zemag-print-overlay { font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222; }';
-    document.head.appendChild(printStyle);
-    var overlay = document.createElement('div');
-    overlay.id = 'zemag-print-overlay';
-    overlay.innerHTML = bodyContent;
-    document.body.appendChild(overlay);
-    archiverBon();
-    window.print();
-    resetBon();
+    const w = window.open('', '_blank');
+    if (!w) { alert("Veuillez autoriser les pop-ups pour imprimer."); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
     setTimeout(() => {
-      try { document.body.removeChild(overlay); } catch(e) {}
-      try { document.head.removeChild(printStyle); } catch(e) {}
-    }, 2000);
+      w.focus();
+      w.print();
+      setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
+    }, 1000);
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
@@ -1204,6 +1176,9 @@ function App() {
             <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
               <button type="button" className="btn" onClick={imprimerBon} style={{ background: "#b5792f", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14 }}>
                 Imprimer / Envoyer en PDF
+              </button>
+              <button type="button" className="btn" onClick={(e) => archiverBon(e)} style={{ background: "#3d6b4a", color: "#fff", padding: "10px 20px", borderRadius: 8, fontSize: 14 }}>
+                Archiver ce bon
               </button>
             </div>
           </div>
