@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   html, body { margin: 0; padding: 0; background: #f2ede2; }
   * { box-sizing: border-box; }
@@ -722,23 +723,41 @@ function App() {
     + '<div style="margin-top:12px;text-align:center;font-size:7pt;color:#888">CB MediaCom SAS — SIRET : 807 882 170 00010 — 91 rue Roland Garros, 36000 Châteauroux</div>'
     + '</div>';
 
-    var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    var container = document.createElement('div');
+    container.style.cssText = 'position:absolute;left:-9999px;top:0;width:297mm;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;';
+    container.innerHTML = bodyContent;
+    document.body.appendChild(container);
 
-    if (isStandalone) {
-      var fullHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}</style></head><body>' + bodyContent + '</body></html>';
-      try { localStorage.setItem('zemag-print-bon', fullHtml); } catch(e) {}
-      var a = document.createElement('a');
-      a.href = window.location.pathname + '?print=bon';
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } else {
-      var pz = document.getElementById('print-zone');
-      pz.innerHTML = bodyContent;
-      window.print();
-      setTimeout(function() { pz.innerHTML = ''; }, 2000);
-    }
+    var filename = 'Bon-commande-' + (bonForm.raisonSociale || 'ZEmag36').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÉÈÊËÎÏÔÙÛÜÇ ]/g, '').replace(/ /g, '-') + '.pdf';
+
+    html2pdf().set({
+      margin: [8, 8, 8, 8],
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      pagebreak: { mode: ['css'] }
+    }).from(container).outputPdf('blob').then(function(pdfBlob) {
+      document.body.removeChild(container);
+      var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+      if (isStandalone && navigator.share) {
+        var file = new File([pdfBlob], filename, { type: 'application/pdf' });
+        navigator.share({ files: [file], title: 'Bon de commande' }).catch(function() {});
+      } else {
+        var url = URL.createObjectURL(pdfBlob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+      }
+    }).catch(function(err) {
+      try { document.body.removeChild(container); } catch(e) {}
+      alert("Erreur PDF : " + err.message);
+    });
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
