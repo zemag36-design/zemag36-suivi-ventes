@@ -93,6 +93,25 @@
 <div id="root" style="display:none"></div>
 
 <script>
+if (window.location.search === '?print=bon') {
+  try {
+    var bonHtml = localStorage.getItem('zemag-print-bon');
+    if (bonHtml) {
+      document.open();
+      document.write(bonHtml);
+      document.close();
+      setTimeout(function() { window.print(); }, 500);
+    } else {
+      document.body.innerHTML = '<p style="padding:20px;font-size:16px">Aucun bon à imprimer. Retournez dans l\'application.</p>';
+    }
+  } catch(e) {
+    document.body.innerHTML = '<p style="padding:20px;font-size:16px">Erreur : ' + e.message + '</p>';
+  }
+  throw new Error('stop');
+}
+</script>
+
+<script>
 firebase.initializeApp({
   apiKey: "AIzaSyCZoX4oLL0ZTt9RCZxQhwIGbZzBO9D6H1o",
   authDomain: "ventes-zemag.firebaseapp.com",
@@ -705,15 +724,15 @@ function App() {
 
     var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
-    if (isStandalone && navigator.share) {
+    if (isStandalone) {
       var fullHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}</style></head><body>' + bodyContent + '</body></html>';
-      try {
-        var blob = new Blob([fullHtml], { type: 'text/html' });
-        var file = new File([blob], 'bon-commande.html', { type: 'text/html' });
-        navigator.share({ files: [file], title: 'Bon de commande' }).catch(function() {});
-      } catch(e) {
-        alert("Pour imprimer, ouvrez l'application dans Safari (pas depuis l'écran d'accueil).");
-      }
+      try { localStorage.setItem('zemag-print-bon', fullHtml); } catch(e) {}
+      var a = document.createElement('a');
+      a.href = window.location.pathname + '?print=bon';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     } else {
       var pz = document.getElementById('print-zone');
       pz.innerHTML = bodyContent;
