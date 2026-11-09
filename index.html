@@ -741,9 +741,18 @@ function App() {
       document.body.removeChild(container);
       var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
-      if (isStandalone && navigator.share) {
-        var file = new File([pdfBlob], filename, { type: 'application/pdf' });
-        navigator.share({ files: [file], title: 'Bon de commande' }).catch(function() {});
+      if (isStandalone) {
+        var reader = new FileReader();
+        reader.onload = function() {
+          var a = document.createElement('a');
+          a.href = reader.result;
+          a.target = '_blank';
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        };
+        reader.readAsDataURL(pdfBlob);
       } else {
         var url = URL.createObjectURL(pdfBlob);
         var a = document.createElement('a');
