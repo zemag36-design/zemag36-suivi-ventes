@@ -739,60 +739,54 @@ function App() {
       pagebreak: { mode: ['css'] }
     }).from(container).outputPdf('blob').then(function(pdfBlob) {
       document.body.removeChild(container);
-      var url = URL.createObjectURL(pdfBlob);
-      var file = new File([pdfBlob], filename, { type: 'application/pdf' });
-      var shared = false;
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;';
+      var info = document.createElement('p');
+      info.textContent = 'Le PDF est prêt !';
+      info.style.cssText = 'color:#fff;font-size:22px;font-weight:700;margin:0;';
+      overlay.appendChild(info);
 
       if (navigator.share) {
-        try {
-          var canShare = navigator.canShare && navigator.canShare({ files: [file] });
-          if (canShare) {
-            shared = true;
-            var overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
-            var info = document.createElement('p');
-            info.textContent = 'Le PDF est prêt !';
-            info.style.cssText = 'color:#fff;font-size:20px;font-weight:700;margin:0;';
-            var btnShare = document.createElement('button');
-            btnShare.textContent = 'Partager / Envoyer par email';
-            btnShare.style.cssText = 'padding:18px 36px;font-size:18px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:12px;cursor:pointer;';
-            var btnSave = document.createElement('button');
-            btnSave.textContent = 'Télécharger le PDF';
-            btnSave.style.cssText = 'padding:14px 30px;font-size:16px;background:#16a34a;color:#fff;border:none;border-radius:10px;cursor:pointer;';
-            var btnClose = document.createElement('button');
-            btnClose.textContent = 'Fermer';
-            btnClose.style.cssText = 'padding:12px 30px;font-size:16px;background:#666;color:#fff;border:none;border-radius:10px;cursor:pointer;';
-            overlay.appendChild(info);
-            overlay.appendChild(btnShare);
-            overlay.appendChild(btnSave);
-            overlay.appendChild(btnClose);
-            document.body.appendChild(overlay);
-            btnClose.onclick = function() { document.body.removeChild(overlay); URL.revokeObjectURL(url); };
-            btnShare.onclick = function() {
-              navigator.share({ files: [file] }).then(function() {
-                document.body.removeChild(overlay); URL.revokeObjectURL(url);
-              }).catch(function(err) {
-                if (err.name !== 'AbortError') alert('Erreur : ' + err.message);
-              });
-            };
-            btnSave.onclick = function() {
-              var a = document.createElement('a');
-              a.href = url; a.download = filename;
-              document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            };
-          }
-        } catch(e) { shared = false; }
+        var btnShare = document.createElement('button');
+        btnShare.textContent = 'Envoyer par email';
+        btnShare.style.cssText = 'padding:18px 36px;font-size:18px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;max-width:320px;';
+        overlay.appendChild(btnShare);
+        btnShare.onclick = function() {
+          try {
+            var f = new File([pdfBlob], filename, { type: 'application/pdf' });
+            navigator.share({ files: [f] }).then(function() {
+              try { document.body.removeChild(overlay); } catch(e) {}
+            }).catch(function(err) {
+              if (err.name !== 'AbortError') alert('Erreur partage : ' + err.message);
+            });
+          } catch(e) { alert('Erreur : ' + e.message); }
+        };
       }
 
-      if (!shared) {
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
-      }
+      var btnDownload = document.createElement('button');
+      btnDownload.textContent = 'Télécharger le PDF';
+      btnDownload.style.cssText = 'padding:16px 36px;font-size:17px;font-weight:600;background:#16a34a;color:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;max-width:320px;';
+      overlay.appendChild(btnDownload);
+      btnDownload.onclick = function() {
+        var reader = new FileReader();
+        reader.onload = function() {
+          var a = document.createElement('a');
+          a.href = reader.result;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        };
+        reader.readAsDataURL(pdfBlob);
+      };
+
+      var btnClose = document.createElement('button');
+      btnClose.textContent = 'Fermer';
+      btnClose.style.cssText = 'padding:14px 30px;font-size:16px;background:#666;color:#fff;border:none;border-radius:10px;cursor:pointer;width:100%;max-width:320px;';
+      overlay.appendChild(btnClose);
+      btnClose.onclick = function() { document.body.removeChild(overlay); };
+
+      document.body.appendChild(overlay);
     }).catch(function(err) {
       try { document.body.removeChild(container); } catch(e) {}
       alert("Erreur PDF : " + err.message);
