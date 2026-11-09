@@ -94,6 +94,25 @@
 <div id="root" style="display:none"></div>
 
 <script>
+if (window.location.search === '?view=pdf') {
+  try {
+    var pdfData = localStorage.getItem('zemag-pdf-temp');
+    if (pdfData) {
+      localStorage.removeItem('zemag-pdf-temp');
+      var byteChars = atob(pdfData);
+      var byteArray = new Uint8Array(byteChars.length);
+      for (var i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+      var blob = new Blob([byteArray], { type: 'application/pdf' });
+      var url = URL.createObjectURL(blob);
+      window.location.replace(url);
+    } else {
+      document.body.innerHTML = '<p style="padding:20px;font-size:16px">Aucun PDF à afficher.</p>';
+    }
+  } catch(e) {
+    document.body.innerHTML = '<p style="padding:20px;font-size:16px">Erreur : ' + e.message + '</p>';
+  }
+  throw new Error('stop');
+}
 if (window.location.search === '?print=bon') {
   try {
     var bonHtml = localStorage.getItem('zemag-print-bon');
@@ -742,33 +761,19 @@ function App() {
       var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
       if (isStandalone) {
-        var file = new File([pdfBlob], filename, { type: 'application/pdf' });
-        var canShare = navigator.canShare && navigator.canShare({ files: [file] });
-        var overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
-        var btnShare = document.createElement('button');
-        btnShare.textContent = canShare ? 'Envoyer / Partager le PDF' : 'Télécharger le PDF';
-        btnShare.style.cssText = 'padding:18px 36px;font-size:18px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:12px;cursor:pointer;';
-        var btnClose = document.createElement('button');
-        btnClose.textContent = 'Fermer';
-        btnClose.style.cssText = 'padding:12px 30px;font-size:16px;background:#666;color:#fff;border:none;border-radius:10px;cursor:pointer;';
-        overlay.appendChild(btnShare);
-        overlay.appendChild(btnClose);
-        document.body.appendChild(overlay);
-        btnClose.onclick = function() { document.body.removeChild(overlay); };
-        btnShare.onclick = function() {
-          if (canShare) {
-            navigator.share({ files: [file], title: 'Bon de commande' }).then(function() {
-              document.body.removeChild(overlay);
-            }).catch(function() {});
-          } else {
-            var url = URL.createObjectURL(pdfBlob);
-            var a = document.createElement('a');
-            a.href = url; a.download = filename; a.target = '_blank';
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            setTimeout(function() { URL.revokeObjectURL(url); document.body.removeChild(overlay); }, 3000);
-          }
+        var reader = new FileReader();
+        reader.onload = function() {
+          var base64 = reader.result.split(',')[1];
+          try { localStorage.setItem('zemag-pdf-temp', base64); } catch(e) { alert('Erreur stockage PDF'); return; }
+          var a = document.createElement('a');
+          a.href = window.location.origin + window.location.pathname + '?view=pdf';
+          a.target = '_blank';
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
         };
+        reader.readAsDataURL(pdfBlob);
       } else {
         var url = URL.createObjectURL(pdfBlob);
         var a = document.createElement('a');
