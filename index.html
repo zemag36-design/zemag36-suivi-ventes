@@ -711,17 +711,13 @@ function App() {
       overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:99999;display:flex;flex-direction:column;';
       var bar = document.createElement('div');
       bar.style.cssText = 'display:flex;gap:8px;padding:10px 12px;background:#241f18;flex-shrink:0;';
-      var btnPrint = document.createElement('button');
-      btnPrint.textContent = '🖨 Imprimer / PDF';
-      btnPrint.style.cssText = 'flex:1;padding:12px 8px;font-size:15px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:8px;';
-      var btnMail = document.createElement('button');
-      btnMail.textContent = '✉ Email';
-      btnMail.style.cssText = 'flex:1;padding:12px 8px;font-size:15px;font-weight:700;background:#16a34a;color:#fff;border:none;border-radius:8px;';
+      var btnPdf = document.createElement('button');
+      btnPdf.textContent = '📤 Partager le PDF';
+      btnPdf.style.cssText = 'flex:1;padding:14px 8px;font-size:16px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:8px;';
       var btnClose = document.createElement('button');
       btnClose.textContent = '✕ Fermer';
-      btnClose.style.cssText = 'padding:12px 16px;font-size:15px;font-weight:600;background:#666;color:#fff;border:none;border-radius:8px;';
-      bar.appendChild(btnPrint);
-      bar.appendChild(btnMail);
+      btnClose.style.cssText = 'padding:14px 16px;font-size:16px;font-weight:600;background:#666;color:#fff;border:none;border-radius:8px;';
+      bar.appendChild(btnPdf);
       bar.appendChild(btnClose);
       var content = document.createElement('div');
       content.style.cssText = 'flex:1;overflow:auto;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;';
@@ -730,9 +726,9 @@ function App() {
       overlay.appendChild(content);
       document.body.appendChild(overlay);
       btnClose.onclick = function() { document.body.removeChild(overlay); };
-      btnPrint.onclick = function() {
-        btnPrint.disabled = true;
-        btnPrint.textContent = 'Création du PDF...';
+      btnPdf.onclick = function() {
+        btnPdf.disabled = true;
+        btnPdf.textContent = 'Création du PDF...';
         var container = document.createElement('div');
         container.style.cssText = 'position:absolute;left:-9999px;top:0;width:1045px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;';
         container.innerHTML = bodyOnly;
@@ -748,30 +744,20 @@ function App() {
         }).from(container).outputPdf('blob').then(function(pdfBlob) {
           document.body.removeChild(container);
           var pdfFile = new File([pdfBlob], nomFichier, { type: 'application/pdf' });
-          if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-            navigator.share({ title: 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36'), files: [pdfFile] }).catch(function() {});
-          } else if (navigator.share) {
-            navigator.share({ title: 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36'), files: [pdfFile] }).catch(function() {
+          navigator.share({ title: 'Bon de commande', files: [pdfFile] }).catch(function(err) {
+            if (err.name !== 'AbortError') {
               var url = URL.createObjectURL(pdfBlob);
               var a = document.createElement('a'); a.href = url; a.download = nomFichier; a.click();
-            });
-          } else {
-            var url = URL.createObjectURL(pdfBlob);
-            var a = document.createElement('a'); a.href = url; a.download = nomFichier; a.click();
-          }
-          btnPrint.disabled = false;
-          btnPrint.textContent = '🖨 Imprimer / PDF';
-        }).catch(function() {
+            }
+          });
+          btnPdf.disabled = false;
+          btnPdf.textContent = '📤 Partager le PDF';
+        }).catch(function(err) {
           document.body.removeChild(container);
-          btnPrint.disabled = false;
-          btnPrint.textContent = '🖨 Imprimer / PDF';
-          alert('Erreur lors de la création du PDF.');
+          btnPdf.disabled = false;
+          btnPdf.textContent = '📤 Partager le PDF';
+          alert('Erreur : ' + err.message);
         });
-      };
-      btnMail.onclick = function() {
-        var sujet = 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36');
-        var corps = 'Bonjour,\n\nVeuillez trouver ci-joint le bon de commande.\n\nCordialement,\nChristine Barbat\nZEmag36';
-        window.location.href = 'mailto:?subject=' + encodeURIComponent(sujet) + '&body=' + encodeURIComponent(corps);
       };
     } else {
       var w = window.open('', '_blank');
