@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <style>
   html, body { margin: 0; padding: 0; background: #f2ede2; }
   * { box-sizing: border-box; }
@@ -730,17 +731,42 @@ function App() {
       document.body.appendChild(overlay);
       btnClose.onclick = function() { document.body.removeChild(overlay); };
       btnPrint.onclick = function() {
-        var blob = new Blob([html], {type: 'text/html'});
-        var file = new File([blob], 'Bon-de-commande-' + (bonForm.raisonSociale || 'ZEmag36').replace(/[^a-zA-Z0-9]/g, '-') + '.html', {type: 'text/html'});
-        if (navigator.share) {
-          navigator.share({ title: 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36'), files: [file] }).catch(function(err) {
-            if (err.name !== 'AbortError') {
-              window.open('data:text/html;charset=utf-8,' + encodeURIComponent(html), '_blank');
-            }
-          });
-        } else {
-          window.open('data:text/html;charset=utf-8,' + encodeURIComponent(html), '_blank');
-        }
+        btnPrint.disabled = true;
+        btnPrint.textContent = 'Création du PDF...';
+        var container = document.createElement('div');
+        container.style.cssText = 'position:absolute;left:-9999px;top:0;width:1045px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;';
+        container.innerHTML = bodyOnly;
+        document.body.appendChild(container);
+        var nomFichier = 'Bon-' + (bonForm.raisonSociale || 'ZEmag36').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç ]/gi, '').replace(/ +/g, '-') + '.pdf';
+        html2pdf().set({
+          margin: [8, 8, 8, 8],
+          filename: nomFichier,
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          pagebreak: { mode: ['css'] }
+        }).from(container).outputPdf('blob').then(function(pdfBlob) {
+          document.body.removeChild(container);
+          var pdfFile = new File([pdfBlob], nomFichier, { type: 'application/pdf' });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+            navigator.share({ title: 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36'), files: [pdfFile] }).catch(function() {});
+          } else if (navigator.share) {
+            navigator.share({ title: 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36'), files: [pdfFile] }).catch(function() {
+              var url = URL.createObjectURL(pdfBlob);
+              var a = document.createElement('a'); a.href = url; a.download = nomFichier; a.click();
+            });
+          } else {
+            var url = URL.createObjectURL(pdfBlob);
+            var a = document.createElement('a'); a.href = url; a.download = nomFichier; a.click();
+          }
+          btnPrint.disabled = false;
+          btnPrint.textContent = '🖨 Imprimer / PDF';
+        }).catch(function() {
+          document.body.removeChild(container);
+          btnPrint.disabled = false;
+          btnPrint.textContent = '🖨 Imprimer / PDF';
+          alert('Erreur lors de la création du PDF.');
+        });
       };
       btnMail.onclick = function() {
         var sujet = 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36');
