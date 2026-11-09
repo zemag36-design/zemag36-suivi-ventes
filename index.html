@@ -25,6 +25,14 @@
   th, td { text-align:left; padding: 6px 8px; font-size:13px; }
   th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#8b8478; border-bottom:2px solid #e2dac7; }
   tr:not(:last-child) td { border-bottom:1px solid #ede6d6; }
+  #print-zone { display:none; }
+  @media print {
+    body > *:not(#print-zone) { display:none !important; }
+    #print-zone { display:block !important; font-family:Arial,Helvetica,sans-serif; font-size:8pt; color:#222; }
+    #print-zone td, #print-zone th { font-size:8pt; }
+    #print-zone .page-cgv { page-break-before:always; break-before:page; }
+    @page { size:A4 landscape; margin:8mm; }
+  }
   #login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f2ede2; }
   #login-box { background:#fff; border:1px solid #e2dac7; border-radius:12px; padding:40px 32px; text-align:center; max-width:360px; width:90%; }
   #login-box h1 { font-family:Georgia,serif; font-size:22px; margin:0 0 4px; color:#2c2a24; }
@@ -81,6 +89,7 @@
     </div>
   </div>
 </div>
+<div id="print-zone"></div>
 <div id="root" style="display:none"></div>
 
 <script>
@@ -660,7 +669,7 @@ function App() {
     }).join("");
 
     const modePaiementLabels = { cheque: "CHÈQUE", reception_facture: "RÉCEPTION DE FACTURE", virement: "VIREMENT", "30_jours": "30 JOURS" };
-    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}</style></head><body><div style="margin:0 auto">'
+    const bodyContent = '<div style="margin:0 auto">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
     + '<div style="display:flex;align-items:center;gap:12px"><img src="' + LOGO_ZEMAG + '" style="height:45px"/>'
     + '<div><div style="font-size:28pt;font-weight:700;color:#c9a26a;line-height:1">' + bonForm.anneeBon + '</div>'
@@ -692,19 +701,12 @@ function App() {
     + '<p style="margin:0 0 6px"><strong>10. Droit applicable et juridiction</strong> — Les présentes conditions sont soumises au droit français. En cas de litige, et après tentative de résolution amiable, les tribunaux de Châteauroux seront seuls compétents.</p>'
     + '</div>'
     + '<div style="margin-top:12px;text-align:center;font-size:7pt;color:#888">CB MediaCom SAS — SIRET : 807 882 170 00010 — 91 rue Roland Garros, 36000 Châteauroux</div>'
-    + '</div>'
-    + '</body></html>';
+    + '</div>';
 
-    const w = window.open('', '_blank');
-    if (!w) { alert("Veuillez autoriser les pop-ups pour imprimer."); return; }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => {
-      w.focus();
-      w.print();
-      setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
-    }, 1000);
+    var pz = document.getElementById('print-zone');
+    pz.innerHTML = bodyContent;
+    window.print();
+    setTimeout(function() { pz.innerHTML = ''; }, 2000);
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
