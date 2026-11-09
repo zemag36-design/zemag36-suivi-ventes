@@ -703,10 +703,23 @@ function App() {
     + '<div style="margin-top:12px;text-align:center;font-size:7pt;color:#888">CB MediaCom SAS — SIRET : 807 882 170 00010 — 91 rue Roland Garros, 36000 Châteauroux</div>'
     + '</div>';
 
-    var pz = document.getElementById('print-zone');
-    pz.innerHTML = bodyContent;
-    window.print();
-    setTimeout(function() { pz.innerHTML = ''; }, 2000);
+    var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+    if (isStandalone && navigator.share) {
+      var fullHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}</style></head><body>' + bodyContent + '</body></html>';
+      try {
+        var blob = new Blob([fullHtml], { type: 'text/html' });
+        var file = new File([blob], 'bon-commande.html', { type: 'text/html' });
+        navigator.share({ files: [file], title: 'Bon de commande' }).catch(function() {});
+      } catch(e) {
+        alert("Pour imprimer, ouvrez l'application dans Safari (pas depuis l'écran d'accueil).");
+      }
+    } else {
+      var pz = document.getElementById('print-zone');
+      pz.innerHTML = bodyContent;
+      window.print();
+      setTimeout(function() { pz.innerHTML = ''; }, 2000);
+    }
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
