@@ -89,7 +89,7 @@
     </div>
   </div>
 </div>
-<div id="print-zone"></div>
+<div id="print-zone" style="display:none !important"></div>
 <div id="root" style="display:none"></div>
 
 <script>
@@ -725,15 +725,35 @@ function App() {
 
     var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
-    if (isStandalone) {
-      try { localStorage.setItem('zemag-print-bon', html); } catch(e) {}
-      var a = document.createElement('a');
-      a.href = window.location.origin + window.location.pathname + '?print=bon';
-      a.target = '_blank';
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isIOS) {
+      var bodyOnly = html.replace(/^.*<body>/i, '').replace(/<\/body>.*$/i, '');
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:99999;display:flex;flex-direction:column;';
+      var bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;justify-content:space-between;padding:10px 16px;background:#241f18;flex-shrink:0;';
+      var btnPrint = document.createElement('button');
+      btnPrint.textContent = 'Imprimer / PDF';
+      btnPrint.style.cssText = 'padding:10px 20px;font-size:15px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:8px;';
+      var btnClose = document.createElement('button');
+      btnClose.textContent = 'Fermer';
+      btnClose.style.cssText = 'padding:10px 20px;font-size:15px;font-weight:600;background:#666;color:#fff;border:none;border-radius:8px;';
+      bar.appendChild(btnPrint);
+      bar.appendChild(btnClose);
+      var content = document.createElement('div');
+      content.style.cssText = 'flex:1;overflow:auto;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;';
+      content.innerHTML = bodyOnly;
+      overlay.appendChild(bar);
+      overlay.appendChild(content);
+      document.body.appendChild(overlay);
+      btnClose.onclick = function() { document.body.removeChild(overlay); };
+      btnPrint.onclick = function() {
+        var pz = document.getElementById('print-zone');
+        pz.innerHTML = bodyOnly;
+        window.print();
+        setTimeout(function() { pz.innerHTML = ''; }, 1000);
+      };
     } else {
       var bodyOnly = html.replace(/^.*<body>/i, '').replace(/<\/body>.*$/i, '');
       var pz = document.getElementById('print-zone');
