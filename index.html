@@ -729,7 +729,19 @@ function App() {
       overlay.appendChild(content);
       document.body.appendChild(overlay);
       btnClose.onclick = function() { document.body.removeChild(overlay); };
-      btnPrint.onclick = function() { window.print(); };
+      btnPrint.onclick = function() {
+        var blob = new Blob([html], {type: 'text/html'});
+        var file = new File([blob], 'Bon-de-commande-' + (bonForm.raisonSociale || 'ZEmag36').replace(/[^a-zA-Z0-9]/g, '-') + '.html', {type: 'text/html'});
+        if (navigator.share) {
+          navigator.share({ title: 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36'), files: [file] }).catch(function(err) {
+            if (err.name !== 'AbortError') {
+              window.open('data:text/html;charset=utf-8,' + encodeURIComponent(html), '_blank');
+            }
+          });
+        } else {
+          window.open('data:text/html;charset=utf-8,' + encodeURIComponent(html), '_blank');
+        }
+      };
       btnMail.onclick = function() {
         var sujet = 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36');
         var corps = 'Bonjour,\n\nVeuillez trouver ci-joint le bon de commande.\n\nCordialement,\nChristine Barbat\nZEmag36';
