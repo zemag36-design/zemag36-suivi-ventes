@@ -25,6 +25,12 @@
   th, td { text-align:left; padding: 6px 8px; font-size:13px; }
   th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#8b8478; border-bottom:2px solid #e2dac7; }
   tr:not(:last-child) td { border-bottom:1px solid #ede6d6; }
+  @media print {
+    body > *:not(#bon-overlay) { display:none !important; }
+    #bon-overlay { position:static !important; }
+    #bon-overlay > div:first-child { display:none !important; }
+    @page { size:A4 landscape; margin:8mm; }
+  }
   #login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f2ede2; }
   #login-box { background:#fff; border:1px solid #e2dac7; border-radius:12px; padding:40px 32px; text-align:center; max-width:360px; width:90%; }
   #login-box h1 { font-family:Georgia,serif; font-size:22px; margin:0 0 4px; color:#2c2a24; }
@@ -695,13 +701,49 @@ function App() {
     + '</div>'
     + '</body></html>';
 
-    var w = window.open('', '_blank');
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-      setTimeout(function() { w.print(); }, 400);
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isIOS) {
+      var bodyOnly = html.replace(/^.*<body>/i, '').replace(/<\/body>.*$/i, '');
+      var overlay = document.createElement('div');
+      overlay.id = 'bon-overlay';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:99999;display:flex;flex-direction:column;';
+      var bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;gap:8px;padding:10px 12px;background:#241f18;flex-shrink:0;';
+      var btnPrint = document.createElement('button');
+      btnPrint.textContent = '🖨 Imprimer / PDF';
+      btnPrint.style.cssText = 'flex:1;padding:12px 8px;font-size:15px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:8px;';
+      var btnMail = document.createElement('button');
+      btnMail.textContent = '✉ Email';
+      btnMail.style.cssText = 'flex:1;padding:12px 8px;font-size:15px;font-weight:700;background:#16a34a;color:#fff;border:none;border-radius:8px;';
+      var btnClose = document.createElement('button');
+      btnClose.textContent = '✕ Fermer';
+      btnClose.style.cssText = 'padding:12px 16px;font-size:15px;font-weight:600;background:#666;color:#fff;border:none;border-radius:8px;';
+      bar.appendChild(btnPrint);
+      bar.appendChild(btnMail);
+      bar.appendChild(btnClose);
+      var content = document.createElement('div');
+      content.style.cssText = 'flex:1;overflow:auto;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;';
+      content.innerHTML = bodyOnly;
+      overlay.appendChild(bar);
+      overlay.appendChild(content);
+      document.body.appendChild(overlay);
+      btnClose.onclick = function() { document.body.removeChild(overlay); };
+      btnPrint.onclick = function() { window.print(); };
+      btnMail.onclick = function() {
+        var sujet = 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36');
+        var corps = 'Bonjour,\n\nVeuillez trouver ci-joint le bon de commande.\n\nCordialement,\nChristine Barbat\nZEmag36';
+        window.location.href = 'mailto:?subject=' + encodeURIComponent(sujet) + '&body=' + encodeURIComponent(corps);
+      };
     } else {
-      alert("Le navigateur a bloqué la fenêtre. Autorisez les pop-ups pour ce site, puis réessayez.");
+      var w = window.open('', '_blank');
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+        setTimeout(function() { w.print(); }, 400);
+      } else {
+        alert("Le navigateur a bloqué la fenêtre. Autorisez les pop-ups pour ce site, puis réessayez.");
+      }
     }
 
   }
