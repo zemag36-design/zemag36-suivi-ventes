@@ -11,7 +11,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   html, body { margin: 0; padding: 0; background: #f2ede2; }
   * { box-sizing: border-box; }
@@ -26,14 +25,6 @@
   th, td { text-align:left; padding: 6px 8px; font-size:13px; }
   th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#8b8478; border-bottom:2px solid #e2dac7; }
   tr:not(:last-child) td { border-bottom:1px solid #ede6d6; }
-  #print-zone { display:none; }
-  @media print {
-    body > *:not(#print-zone) { display:none !important; }
-    #print-zone { display:block !important; font-family:Arial,Helvetica,sans-serif; font-size:8pt; color:#222; }
-    #print-zone td, #print-zone th { font-size:8pt; }
-    #print-zone .page-cgv { page-break-before:always; break-before:page; }
-    @page { size:A4 landscape; margin:8mm; }
-  }
   #login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f2ede2; }
   #login-box { background:#fff; border:1px solid #e2dac7; border-radius:12px; padding:40px 32px; text-align:center; max-width:360px; width:90%; }
   #login-box h1 { font-family:Georgia,serif; font-size:22px; margin:0 0 4px; color:#2c2a24; }
@@ -90,27 +81,7 @@
     </div>
   </div>
 </div>
-<div id="print-zone"></div>
 <div id="root" style="display:none"></div>
-
-<script>
-if (window.location.search === '?print=bon') {
-  try {
-    var bonHtml = localStorage.getItem('zemag-print-bon');
-    if (bonHtml) {
-      document.open();
-      document.write(bonHtml);
-      document.close();
-      setTimeout(function() { window.print(); }, 500);
-    } else {
-      document.body.innerHTML = '<p style="padding:20px;font-size:16px">Aucun bon à imprimer. Retournez dans l\'application.</p>';
-    }
-  } catch(e) {
-    document.body.innerHTML = '<p style="padding:20px;font-size:16px">Erreur : ' + e.message + '</p>';
-  }
-  throw new Error('stop');
-}
-</script>
 
 <script>
 firebase.initializeApp({
@@ -689,7 +660,7 @@ function App() {
     }).join("");
 
     const modePaiementLabels = { cheque: "CHÈQUE", reception_facture: "RÉCEPTION DE FACTURE", virement: "VIREMENT", "30_jours": "30 JOURS" };
-    const bodyContent = '<div style="margin:0 auto">'
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/><title>Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36') + '</title><style>@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222}td,th{font-size:8pt}.page-cgv{page-break-before:always;break-before:page}</style></head><body><div style="margin:0 auto">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
     + '<div style="display:flex;align-items:center;gap:12px"><img src="' + LOGO_ZEMAG + '" style="height:45px"/>'
     + '<div><div style="font-size:28pt;font-weight:700;color:#c9a26a;line-height:1">' + bonForm.anneeBon + '</div>'
@@ -721,70 +692,23 @@ function App() {
     + '<p style="margin:0 0 6px"><strong>10. Droit applicable et juridiction</strong> — Les présentes conditions sont soumises au droit français. En cas de litige, et après tentative de résolution amiable, les tribunaux de Châteauroux seront seuls compétents.</p>'
     + '</div>'
     + '<div style="margin-top:12px;text-align:center;font-size:7pt;color:#888">CB MediaCom SAS — SIRET : 807 882 170 00010 — 91 rue Roland Garros, 36000 Châteauroux</div>'
-    + '</div>';
+    + '</div>'
+    + '</body></html>';
 
-    var container = document.createElement('div');
-    container.style.cssText = 'position:absolute;left:-9999px;top:0;width:297mm;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;';
-    container.innerHTML = bodyContent;
-    document.body.appendChild(container);
+    archiverBon();
 
-    var filename = 'Bon-commande-' + (bonForm.raisonSociale || 'ZEmag36').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüçÀÂÉÈÊËÎÏÔÙÛÜÇ ]/g, '').replace(/ /g, '-') + '.pdf';
+    const w = window.open('', '_blank');
+    if (!w) { alert("Veuillez autoriser les pop-ups pour imprimer."); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => {
+      w.focus();
+      w.print();
+      setTimeout(() => { try { w.close(); } catch(e) {} }, 5000);
+    }, 1000);
 
-    html2pdf().set({
-      margin: [8, 8, 8, 8],
-      filename: filename,
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-      pagebreak: { mode: ['css'] }
-    }).from(container).outputPdf('blob').then(function(pdfBlob) {
-      document.body.removeChild(container);
-      var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-      if (isIOS) {
-        var overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;';
-        var info = document.createElement('p');
-        info.textContent = 'Le PDF est prêt !';
-        info.style.cssText = 'color:#fff;font-size:22px;font-weight:700;margin:0;';
-        overlay.appendChild(info);
-
-        var btnShare = document.createElement('button');
-        btnShare.textContent = 'Envoyer par email';
-        btnShare.style.cssText = 'padding:18px 36px;font-size:18px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:12px;cursor:pointer;width:100%;max-width:320px;';
-        overlay.appendChild(btnShare);
-        btnShare.onclick = function() {
-          try {
-            var f = new File([pdfBlob], filename, { type: 'application/pdf' });
-            navigator.share({ files: [f] }).then(function() {
-              try { document.body.removeChild(overlay); } catch(e) {}
-            }).catch(function(err) {
-              if (err.name !== 'AbortError') alert('Erreur partage : ' + err.message);
-            });
-          } catch(e) { alert('Erreur : ' + e.message); }
-        };
-
-        var btnClose = document.createElement('button');
-        btnClose.textContent = 'Fermer';
-        btnClose.style.cssText = 'padding:14px 30px;font-size:16px;background:#666;color:#fff;border:none;border-radius:10px;cursor:pointer;width:100%;max-width:320px;';
-        overlay.appendChild(btnClose);
-        btnClose.onclick = function() { document.body.removeChild(overlay); };
-
-        document.body.appendChild(overlay);
-      } else {
-        var url = URL.createObjectURL(pdfBlob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
-      }
-    }).catch(function(err) {
-      try { document.body.removeChild(container); } catch(e) {}
-      alert("Erreur PDF : " + err.message);
-    });
+    resetBon();
   }
   const totalBonHT = bonForm.lignes.reduce((s, l) => s + totalBonLigne(l), 0);
 
@@ -1255,7 +1179,7 @@ function App() {
 
             <div style={{ marginTop: 18, display: "flex", flexWrap: "wrap", gap: 10 }}>
               <button type="button" className="btn" onClick={imprimerBon} style={{ background: "#b5792f", color: "#fff", padding: "12px 20px", borderRadius: 8, fontSize: 15, flex: "1 1 auto", minWidth: 200 }}>
-                Imprimer / Envoyer en PDF
+                Imprimer le bon
               </button>
               <button type="button" className="btn" onClick={(e) => archiverBon(e)} style={{ background: "#3d6b4a", color: "#fff", padding: "12px 20px", borderRadius: 8, fontSize: 15, flex: "1 1 auto", minWidth: 200 }}>
                 Archiver ce bon
