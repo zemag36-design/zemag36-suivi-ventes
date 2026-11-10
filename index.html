@@ -11,7 +11,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <style>
   html, body { margin: 0; padding: 0; background: #f2ede2; }
   * { box-sizing: border-box; }
@@ -728,28 +729,103 @@ function App() {
       document.body.appendChild(overlay);
       btnClose.onclick = function() { document.body.removeChild(overlay); };
       btnShare.onclick = function() {
-        if (typeof html2pdf === 'undefined') {
-          alert('Chargement en cours, réessayez dans quelques secondes.');
-          return;
-        }
         btnShare.disabled = true;
         btnShare.textContent = 'Création du PDF...';
-        html2pdf().set({
-          margin: [8, 8, 8, 8],
-          filename: nomFichier + '.pdf',
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-          pagebreak: { mode: ['css'] }
-        }).from(content).outputPdf('blob').then(function(blob) {
+        try {
+        var moisPdf = ["Janv", "Fév", "Mars", "Avr", "Mai", "Juin", "Juil", "Sept", "Oct", "Nov", "Déc"];
+        var lignesTab = bonForm.lignes.map(function(l, i) {
+          var tot = totalBonLigne(l);
+          return [
+            {text: String(i+1), alignment: 'center'},
+            l.rubrique || '',
+            l.format || '',
+            {text: l.tarif ? fmt(parseFloat(l.tarif)) : '', alignment: 'right'},
+            {text: l.nbParutions || '', alignment: 'center'},
+            {text: l.tarifRemise ? fmt(parseFloat(l.tarifRemise)) : '', alignment: 'right'},
+            {text: tot ? fmt(tot) : '', alignment: 'right', bold: true}
+          ];
+        });
+        var calBody = [[''].concat(moisPdf)];
+        (bonForm.calendrier || []).forEach(function(row, i) {
+          calBody.push([String(i+1)].concat((row || []).map(function(c) { return c ? '✓' : ''; })));
+        });
+        var modePLabels = { cheque: "CHÈQUE", reception_facture: "RÉCEPTION DE FACTURE", virement: "VIREMENT", "30_jours": "30 JOURS" };
+        var dateF = bonForm.date ? new Date(bonForm.date + "T00:00:00").toLocaleDateString("fr-FR") : ".../.../......";
+        var docDef = {
+          pageSize: 'A4', pageOrientation: 'landscape', pageMargins: [20, 20, 20, 20],
+          defaultStyle: { fontSize: 8 },
+          content: [
+            {columns: [
+              {width: '*', text: [
+                {text: 'ZEmag36 ', fontSize: 14, bold: true, color: '#c9a26a'},
+                {text: bonForm.anneeBon, fontSize: 22, bold: true, color: '#c9a26a'},
+                {text: '\nBon de commande le : ' + dateF, fontSize: 8}
+              ]},
+              {width: 'auto', text: [
+                {text: 'CB MediaCom SAS\n', bold: true, fontSize: 8},
+                {text: 'SIRET : 807 882 170 00010\n91 rue Roland Garros - 36000 Châteauroux\nChristine Barbat | 06 86 20 30 01 | zemag36@gmail.com', fontSize: 7}
+              ], alignment: 'right'}
+            ], marginBottom: 8},
+            {table: {headerRows: 0, widths: [75, '*', 50, '*'], body: [
+              [{text: 'RAISON SOCIALE :', bold: true, fillColor: '#f7f3ea'}, bonForm.raisonSociale || '', {text: 'SIRET :', bold: true, fillColor: '#f7f3ea'}, bonForm.siret || ''],
+              [{text: 'Adresse :', bold: true, fillColor: '#f7f3ea'}, bonForm.adresse || '', {text: 'Code postal :', bold: true, fillColor: '#f7f3ea'}, bonForm.codePostal || ''],
+              [{text: 'Ville :', bold: true, fillColor: '#f7f3ea'}, bonForm.ville || '', {text: 'Email :', bold: true, fillColor: '#f7f3ea'}, bonForm.email || ''],
+              [{text: 'Tel :', bold: true, fillColor: '#f7f3ea'}, bonForm.tel || '', {text: 'Mobile :', bold: true, fillColor: '#f7f3ea'}, bonForm.mobile || '']
+            ]}, layout: 'lightHorizontalLines', marginBottom: 6},
+            {table: {headerRows: 1, widths: [20, '*', 50, 55, 40, 55, 55], body: [
+              [{text: '', fillColor: '#f0e6d2'}, {text: 'RUBRIQUE', fillColor: '#f0e6d2', bold: true}, {text: 'FORMAT', fillColor: '#f0e6d2', bold: true}, {text: 'TARIF', fillColor: '#f0e6d2', bold: true}, {text: 'NB PAR.', fillColor: '#f0e6d2', bold: true}, {text: 'TARIF REM.', fillColor: '#f0e6d2', bold: true}, {text: 'TOTAL HT', fillColor: '#f0e6d2', bold: true}]
+            ].concat(lignesTab)}, marginBottom: 4},
+            {text: 'Format en mm : Page : 170 x 240 - 1/2 Page : 157 x 114 - 1/4 Page : 77 x 114', fontSize: 6, color: '#666', marginBottom: 4},
+            {columns: [
+              {width: '*', stack: [
+                {text: 'CALENDRIER DE PARUTION : ' + bonForm.anneeBon, bold: true, fontSize: 8, marginBottom: 2},
+                {table: {headerRows: 1, body: calBody}, fontSize: 6}
+              ]},
+              {width: 130, stack: [
+                {text: ' ', marginBottom: 20},
+                {table: {body: [
+                  ['Total HT', {text: fmt(totalHT), alignment: 'right', bold: true}],
+                  ['TVA 20%', {text: fmt(tva), alignment: 'right'}],
+                  [{text: 'Total TTC', bold: true, fontSize: 9}, {text: fmt(ttc), alignment: 'right', bold: true, fontSize: 10}]
+                ], widths: [60, 60]}, layout: 'noBorders'}
+              ]}
+            ], marginBottom: 6},
+            {columns: [
+              {width: '*', stack: [
+                {text: 'Date : ' + dateF, marginBottom: 3},
+                {text: 'MODE DE PAIEMENT : ' + (modePLabels[bonForm.modePaiement] || ''), bold: true, marginBottom: 3},
+                {text: 'Observations : ' + (bonForm.observations || '')}
+              ]},
+              {width: '*', stack: [
+                {text: 'Cachet commercial du client', alignment: 'center', fontSize: 7, color: '#666', marginBottom: 25},
+                {text: 'Signature du client', alignment: 'center', fontSize: 7, color: '#666', marginBottom: 35},
+                {text: 'Nom et qualité : ' + (bonForm.nomQualite || ''), alignment: 'center'}
+              ]}
+            ]},
+            {text: '', pageBreak: 'after'},
+            {text: 'CONDITIONS GÉNÉRALES DE VENTE', alignment: 'center', bold: true, fontSize: 11, marginBottom: 8},
+            {columns: [
+              {width: '*', stack: [
+                {text: [{text: '1. Objet — ', bold: true}, 'Les présentes conditions régissent les insertions publicitaires dans le magazine ZEmag36, édité par CB MediaCom SAS.'], marginBottom: 5},
+                {text: [{text: '2. Commande — ', bold: true}, "Toute commande signée par l'annonceur ou son mandataire constitue un engagement ferme et définitif. La signature du bon de commande vaut acceptation des présentes conditions."], marginBottom: 5},
+                {text: [{text: '3. Tarifs — ', bold: true}, "Les tarifs s'entendent hors taxes. La TVA applicable est celle en vigueur au jour de la facturation (20 %)."], marginBottom: 5},
+                {text: [{text: '4. Facturation et paiement — ', bold: true}, "La facture est émise à la parution. Sauf accord particulier mentionné au recto, le paiement est dû à réception de facture. Tout retard de paiement entraîne de plein droit, sans mise en demeure préalable, des pénalités de retard au taux de trois fois le taux d'intérêt légal en vigueur, ainsi qu'une indemnité forfaitaire de recouvrement de 40 euros (art. L.441-10 et D.441-5 du Code de commerce)."], marginBottom: 5},
+                {text: [{text: '5. Annulation — ', bold: true}, "Toute annulation doit être notifiée par écrit. Passé le délai de 30 jours avant la date de bouclage du numéro concerné, l'intégralité du montant de l'insertion reste due."], marginBottom: 5}
+              ]},
+              {width: '*', stack: [
+                {text: [{text: '6. Fourniture des éléments — ', bold: true}, "L'annonceur s'engage à fournir ses éléments (textes, visuels, logos) dans les délais communiqués par l'éditeur. À défaut, l'éditeur se réserve le droit de publier une annonce de substitution ou de facturer l'espace réservé."], marginBottom: 5},
+                {text: [{text: '7. Responsabilité — ', bold: true}, "L'annonceur garantit être titulaire des droits de propriété intellectuelle sur les éléments fournis et dégage l'éditeur de toute responsabilité à cet égard."], marginBottom: 5},
+                {text: [{text: '8. Emplacement — ', bold: true}, "Sauf emplacement préférentiel expressément réservé et facturé, l'éditeur se réserve le choix de l'emplacement de l'annonce."], marginBottom: 5},
+                {text: [{text: '9. Réclamation — ', bold: true}, "Toute réclamation relative à la parution doit être formulée par écrit dans un délai de 15 jours suivant la date de publication. Au-delà, aucune réclamation ne sera recevable."], marginBottom: 5},
+                {text: [{text: '10. Droit applicable et juridiction — ', bold: true}, "Les présentes conditions sont soumises au droit français. En cas de litige, et après tentative de résolution amiable, les tribunaux de Châteauroux seront seuls compétents."], marginBottom: 5}
+              ]}
+            ], columnGap: 15, fontSize: 7},
+            {text: 'CB MediaCom SAS — SIRET : 807 882 170 00010 — 91 rue Roland Garros, 36000 Châteauroux', alignment: 'center', fontSize: 7, color: '#888', marginTop: 10}
+          ]
+        };
+        pdfMake.createPdf(docDef).getBlob(function(blob) {
           btnShare.disabled = false;
           btnShare.textContent = '📤 Envoyer par email';
-          if (blob.size < 500) {
-            alert('Le PDF est vide, envoi en HTML.');
-            var f = new File([new Blob([html], {type: 'text/html'})], nomFichier + '.html', {type: 'text/html'});
-            navigator.share({ files: [f] }).catch(function() {});
-            return;
-          }
           var pdfFile = new File([blob], nomFichier + '.pdf', {type: 'application/pdf'});
           navigator.share({
             title: 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36'),
@@ -757,13 +833,12 @@ function App() {
           }).catch(function(err) {
             if (err.name !== 'AbortError') alert('Erreur partage: ' + err.message);
           });
-        }).catch(function(err) {
+        });
+        } catch(e) {
           btnShare.disabled = false;
           btnShare.textContent = '📤 Envoyer par email';
-          alert('Erreur PDF: ' + err.message + '\nEnvoi en HTML à la place.');
-          var f = new File([new Blob([html], {type: 'text/html'})], nomFichier + '.html', {type: 'text/html'});
-          navigator.share({ files: [f] }).catch(function() {});
-        });
+          alert('Erreur: ' + e.message);
+        }
       };
     } else {
       var w = window.open('', '_blank');
