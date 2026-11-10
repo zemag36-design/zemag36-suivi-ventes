@@ -727,40 +727,42 @@ function App() {
       overlay.appendChild(content);
       document.body.appendChild(overlay);
       btnClose.onclick = function() { document.body.removeChild(overlay); };
-      var pdfBlob = null;
-      if (typeof html2pdf !== 'undefined') {
-        var container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:0;top:0;width:1045px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;z-index:1;opacity:0;pointer-events:none;';
-        container.innerHTML = bodyOnly;
-        document.body.appendChild(container);
+      btnShare.onclick = function() {
+        if (typeof html2pdf === 'undefined') {
+          alert('Chargement en cours, réessayez dans quelques secondes.');
+          return;
+        }
+        btnShare.disabled = true;
+        btnShare.textContent = 'Création du PDF...';
         html2pdf().set({
           margin: [8, 8, 8, 8],
           filename: nomFichier + '.pdf',
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 1045 },
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
           pagebreak: { mode: ['css'] }
-        }).from(container).outputPdf('blob').then(function(blob) {
-          try { document.body.removeChild(container); } catch(e) {}
-          pdfBlob = blob;
-          btnShare.textContent = '📤 Envoyer le bon par email';
-          btnShare.style.background = '#16a34a';
-        }).catch(function() {
-          try { document.body.removeChild(container); } catch(e) {}
-        });
-      }
-      btnShare.onclick = function() {
-        var file;
-        if (pdfBlob && pdfBlob.size > 1000) {
-          file = new File([pdfBlob], nomFichier + '.pdf', {type: 'application/pdf'});
-        } else {
-          file = new File([new Blob([html], {type: 'text/html'})], nomFichier + '.html', {type: 'text/html'});
-        }
-        navigator.share({
-          title: 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36'),
-          files: [file]
+        }).from(content).outputPdf('blob').then(function(blob) {
+          btnShare.disabled = false;
+          btnShare.textContent = '📤 Envoyer par email';
+          if (blob.size < 500) {
+            alert('Le PDF est vide, envoi en HTML.');
+            var f = new File([new Blob([html], {type: 'text/html'})], nomFichier + '.html', {type: 'text/html'});
+            navigator.share({ files: [f] }).catch(function() {});
+            return;
+          }
+          var pdfFile = new File([blob], nomFichier + '.pdf', {type: 'application/pdf'});
+          navigator.share({
+            title: 'Bon de commande - ' + (bonForm.raisonSociale || 'ZEmag36'),
+            files: [pdfFile]
+          }).catch(function(err) {
+            if (err.name !== 'AbortError') alert('Erreur partage: ' + err.message);
+          });
         }).catch(function(err) {
-          if (err.name !== 'AbortError') alert('Erreur: ' + err.message);
+          btnShare.disabled = false;
+          btnShare.textContent = '📤 Envoyer par email';
+          alert('Erreur PDF: ' + err.message + '\nEnvoi en HTML à la place.');
+          var f = new File([new Blob([html], {type: 'text/html'})], nomFichier + '.html', {type: 'text/html'});
+          navigator.share({ files: [f] }).catch(function() {});
         });
       };
     } else {
