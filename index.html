@@ -726,34 +726,41 @@ function App() {
       overlay.appendChild(content);
       document.body.appendChild(overlay);
       btnClose.onclick = function() { document.body.removeChild(overlay); };
+      var pdfPret = null;
+      var nomFichier = 'Bon-' + (bonForm.raisonSociale || 'ZEmag36').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç ]/gi, '').replace(/ +/g, '-') + '.pdf';
+
       btnPdf.onclick = function() {
+        if (pdfPret) {
+          var pdfFile = new File([pdfPret], nomFichier, { type: 'application/pdf' });
+          navigator.share({ files: [pdfFile] }).catch(function(err) {
+            if (err.name !== 'AbortError') {
+              alert('Partage impossible. Le PDF a été téléchargé.');
+              var a = document.createElement('a'); a.href = URL.createObjectURL(pdfPret); a.download = nomFichier; a.click();
+            }
+          });
+          return;
+        }
         btnPdf.disabled = true;
         btnPdf.textContent = 'Création du PDF...';
         var container = document.createElement('div');
-        container.style.cssText = 'position:absolute;left:-9999px;top:0;width:1045px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;';
+        container.style.cssText = 'position:fixed;left:0;top:0;width:1045px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;z-index:1;opacity:0;pointer-events:none;';
         container.innerHTML = bodyOnly;
         document.body.appendChild(container);
-        var nomFichier = 'Bon-' + (bonForm.raisonSociale || 'ZEmag36').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç ]/gi, '').replace(/ +/g, '-') + '.pdf';
         html2pdf().set({
           margin: [8, 8, 8, 8],
           filename: nomFichier,
           image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 1045 },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
           pagebreak: { mode: ['css'] }
         }).from(container).outputPdf('blob').then(function(pdfBlob) {
           document.body.removeChild(container);
-          var pdfFile = new File([pdfBlob], nomFichier, { type: 'application/pdf' });
-          navigator.share({ title: 'Bon de commande', files: [pdfFile] }).catch(function(err) {
-            if (err.name !== 'AbortError') {
-              var url = URL.createObjectURL(pdfBlob);
-              var a = document.createElement('a'); a.href = url; a.download = nomFichier; a.click();
-            }
-          });
+          pdfPret = pdfBlob;
           btnPdf.disabled = false;
-          btnPdf.textContent = '📤 Partager le PDF';
+          btnPdf.textContent = '📤 Envoyer le PDF (' + Math.round(pdfBlob.size / 1024) + ' Ko)';
+          btnPdf.style.background = '#16a34a';
         }).catch(function(err) {
-          document.body.removeChild(container);
+          try { document.body.removeChild(container); } catch(e) {}
           btnPdf.disabled = false;
           btnPdf.textContent = '📤 Partager le PDF';
           alert('Erreur : ' + err.message);
