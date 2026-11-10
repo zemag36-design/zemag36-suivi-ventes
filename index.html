@@ -726,26 +726,16 @@ function App() {
       overlay.appendChild(content);
       document.body.appendChild(overlay);
       btnClose.onclick = function() { document.body.removeChild(overlay); };
-      var pdfPret = null;
       var nomFichier = 'Bon-' + (bonForm.raisonSociale || 'ZEmag36').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç ]/gi, '').replace(/ +/g, '-') + '.pdf';
 
       btnPdf.onclick = function() {
-        if (pdfPret) {
-          var pdfFile = new File([pdfPret], nomFichier, { type: 'application/pdf' });
-          navigator.share({ files: [pdfFile] }).catch(function(err) {
-            if (err.name !== 'AbortError') {
-              alert('Partage impossible. Le PDF a été téléchargé.');
-              var a = document.createElement('a'); a.href = URL.createObjectURL(pdfPret); a.download = nomFichier; a.click();
-            }
-          });
-          return;
-        }
         btnPdf.disabled = true;
         btnPdf.textContent = 'Création du PDF...';
         var container = document.createElement('div');
         container.style.cssText = 'position:fixed;left:0;top:0;width:1045px;font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#222;z-index:1;opacity:0;pointer-events:none;';
         container.innerHTML = bodyOnly;
         document.body.appendChild(container);
+        try {
         html2pdf().set({
           margin: [8, 8, 8, 8],
           filename: nomFichier,
@@ -755,16 +745,42 @@ function App() {
           pagebreak: { mode: ['css'] }
         }).from(container).outputPdf('blob').then(function(pdfBlob) {
           document.body.removeChild(container);
-          pdfPret = pdfBlob;
           btnPdf.disabled = false;
-          btnPdf.textContent = '📤 Envoyer le PDF (' + Math.round(pdfBlob.size / 1024) + ' Ko)';
-          btnPdf.style.background = '#16a34a';
+          btnPdf.textContent = '📤 Partager le PDF';
+          var pdfFile = new File([pdfBlob], nomFichier, { type: 'application/pdf' });
+          var shared = false;
+          if (navigator.share) {
+            try {
+              var canShare = navigator.canShare && navigator.canShare({ files: [pdfFile] });
+              if (canShare) {
+                navigator.share({ files: [pdfFile] }).then(function() { shared = true; }).catch(function() {});
+                shared = true;
+              }
+            } catch(e2) {}
+          }
+          if (!shared) {
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(pdfBlob);
+            a.download = nomFichier;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function() {
+              alert('Le PDF a été téléchargé dans vos Fichiers.\n\nPour l\'envoyer par email :\n1. Ouvrez l\'app Fichiers\n2. Trouvez le PDF dans Téléchargements\n3. Appuyez longuement dessus\n4. Choisissez Partager');
+            }, 500);
+          }
         }).catch(function(err) {
           try { document.body.removeChild(container); } catch(e) {}
           btnPdf.disabled = false;
           btnPdf.textContent = '📤 Partager le PDF';
-          alert('Erreur : ' + err.message);
+          alert('Erreur PDF: ' + err.message);
         });
+        } catch(e) {
+          document.body.removeChild(container);
+          btnPdf.disabled = false;
+          btnPdf.textContent = '📤 Partager le PDF';
+          alert('html2pdf non disponible: ' + e.message);
+        }
       };
     } else {
       var w = window.open('', '_blank');
